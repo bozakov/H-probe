@@ -10,7 +10,7 @@ import hphelper
 
 
 options = hphelper.options
-DEBUG=options.DEBUG
+DEBUG = hphelper.DEBUG
 
 
 def dumpwriter(pipe, ns, slottimes):
@@ -21,7 +21,7 @@ def dumpwriter(pipe, ns, slottimes):
 
     slots = slottimes[:]
 
-    DEBUG('starting ' + __NAME__)
+    DEBUG('starting ' + __name__)
     run_start = timetime()
 
 
@@ -56,17 +56,19 @@ def dumpwriter(pipe, ns, slottimes):
 
     try:
        while 1:
-            (stats.seq, snd_time, rtt) = pipe.recv()
+            (seq, snd_time, rtt) = pipe.recv()
             currslot = slots[stats.seq]
+
+            stats.update(seq, rtt=rtt, current_slot=currslot)
+
             if snd_time == -1:
                  rtt = -1
                  stats.snd_err += 1
-            else:
-                 stats.rx_total += 1 
 
-            fs.write("%d %d %.9f\n" % (stats.seq, currslot , rtt))
+            fs.write("%d %d %.9f\n" % (seq, currslot , rtt))
     except (ValueError, KeyboardInterrupt) as e:
-        print '\ndone writing'
+        print 
+        DEBUG( __name__ + ': done')
     fs.close()
 
     stats.run_end = time.time()

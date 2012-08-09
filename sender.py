@@ -25,7 +25,7 @@ except ImportError:
 
 
 options = hphelper.options
-
+DEBUG = hphelper.DEBUG
 
 
 def checksum(packet):
@@ -57,7 +57,7 @@ def dummyloop(ns, slottimes):
     while not ns.RCV_READY:
         time.sleep(0.1)
 
-    if options.DEBUG: print 'READY: ' + __name__
+    DEBUG('READY: ' + __name__)
 
 
 ################################################################################
@@ -89,17 +89,15 @@ def sendloop(ns, slottimes):
     while not ns.RCV_READY:
         time.sleep(0.1)
 
-    if options.DEBUG: print 'READY: ' + __name__
+    DEBUG('READY: ' + __name__)
 
 
     payload = '8'*payload_len
-
     try:
         t_start = timetime()
         geotimes += t_start
 
         pkt = ''.join([pkts[0],payload])
-
         for i in xrange(1,pnum):
             #hexdump(pkts[i])
             #Ether(pkts[i]).show2()
@@ -107,22 +105,19 @@ def sendloop(ns, slottimes):
             s.send(pkt)
             pkt = ''.join([pkts[i],payload])
 
-
-            while ((timetime() ) < geotimes[i]):
-                #time.sleep(delta/4) # REVERT TODO
+            while (timetime() < geotimes[i]):
+                #time.sleep(delta/4)                           # TODO we can reduce the load at the expence of accuracy
                 pass
+        s.send(pkt) # send the last prepared packet
 
     except KeyboardInterrupt:
         pass
 
     t_total = timetime() - t_start
-    if options.DEBUG:
-        print "sender runtime:\t %.8f s" % (t_total)
-    else:
-        print '\a',           # bell
 
+    print '\a',  
     s.close()                 # close socket
-
+    DEBUG("sender runtime:\t %.8f s" % (t_total))
 
 ##############################################################################
 # pre-generate probes on import
@@ -159,7 +154,6 @@ try:
     for i in xrange(options.pnum):
         p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte ID in ICMP payload
         p[2] = struct.pack('<H', (ck))                      # update ICMP cksum
-
         pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes in the array
         ck = (ck-256) % 0xFFFF                              # increment ICMP cksum: see RFC 1141
 

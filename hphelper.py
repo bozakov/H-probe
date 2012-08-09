@@ -49,7 +49,8 @@ class stats_stats:
 
         
     def mean_a(self):
-        return 1.0*self.rx_total/self.rx_slots
+        if self.rx_slots:
+            return 1.0*self.rx_total/self.rx_slots
 
 
     def mean_rtt(self):
@@ -70,11 +71,12 @@ class stats_stats:
         if self.rcv_err:
             print "packets dropped at receiver:\t%d" % (self.rcv_err,)
         print "max sqeuence nr.:\t\t%d" % (self.seq)
-        print "max. slot received:\t\t%d" % (self.rx_slots)
-        print "sample probing intensity:\t%.6f" % (self.mean_a())
         if self.rx_total:
             print "total probes received:\t\t%d" %(self.rx_total)
             print "mean RTT:        \t\t%.6f" % (self.mean_rtt())
+        if self.rx_slots:
+            print "max. slot received:\t\t%d" % (self.rx_slots)
+            print "sample probing intensity:\t%.6f" % (self.mean_a())
         if self.min_rtt!=np.inf:
             print "min RTT:         \t\t%.6f" % (self.min_rtt)
         if self.max_rtt!=-np.inf:
@@ -86,7 +88,7 @@ class stats_stats:
 
         rt = self.runtime()
         if rt:
-            print "runtime:\t\t\t%.8f s" % rt
+            print "runtime:\t\t\t%.2f s" % rt
         print '-'*term_width
 
 
