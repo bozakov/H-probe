@@ -278,7 +278,7 @@ class XcovEstimator(threading.Thread):
 
                 # increment dropped packets counter
                 stats.rcv_err += 1
-                self.append(1, slot_delta-1)
+                self.append(1, slot_delta)
 
 
             max_seq = seq
@@ -294,7 +294,7 @@ class XcovEstimator(threading.Thread):
             # check if probe saw a busy period (0/1)
             probe = int(rtt > min_rtt)
 
-            self.append(probe, slot_delta-1)
+            self.append(probe, slot_delta)
 
 
 
