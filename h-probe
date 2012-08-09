@@ -1,0 +1,315 @@
+#! /usr/bin/env python
+
+# Copyright 2012 IKT Leibniz Universitaet Hannover
+# GPL2
+# Zdravko Bozakov (zb@ikt.uni-hannover.de)
+
+import IN
+import os
+import sys
+import time
+import pprint
+import socket 
+import logging
+import threading
+import multiprocessing
+from optparse import OptionParser
+
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
+# import Psyco if available
+try:
+    import psyco
+    psyco.full()
+except ImportError:
+    pass
+
+
+try:
+    import numpy as np
+    import pcap               # python-pypcap
+
+    from scapy.all import *
+except ImportError:
+    print __name__ + ": please make sure the following packages are installed:"
+    print "\tpython-pypcap"
+    print "\tpython-numpy"
+    print "\tpython-scapy"
+    exit(1)
+
+
+import hphelper
+
+if __name__ != '__main__': exit(0)
+
+np.random.seed()
+
+
+usage = "usage: %prog [options] host [savefile]"
+oparser = OptionParser(usage, version = "H-probe version 1.0\n (c) 2012 Zdravko Bozakov, IKT Leibniz Universitaet Hannover")
+
+oparser.add_option("-n", "--probe-num",  dest="pnum", default=100000, type="int", 
+                  help="total number of probes (default: %default)")
+oparser.add_option("-d", "--delta", dest="delta", default="1e-3", type="float", 
+                  help="min. time in seconds between probes (default: %default)")
+oparser.add_option("-r", "--rate", dest="rate", default=0.1, type="float", 
+                  help="mean probing intensity between 0 and 1 (default: %default)")
+oparser.add_option("-s", "--psize", dest="plen", default=64, type="int", 
+                  help="total probe packet size in bytes (default: %default)")
+oparser.add_option("-L", "--lag", dest="L", default=10.0, type="float", 
+                  help="maximum lag in seconds (default: %default s)")
+oparser.add_option("-M", "--agg-level", dest="M", nargs=2, default=[0.1,100.0], type="float", 
+                  help="min/max aggregation range in seconds for aggregate variance method (default: %default s)")
+oparser.add_option("--in-slots", action="store_true", dest="in_slots", default=False,
+                  help="lag and aggregation levels are given in slots rather than absolute time")
+oparser.add_option("-t", "--min-rtt", dest="min_rtt", default=-1.0, type="float", 
+                  help="specify the minimum RTT used to detect a busy beriod")
+oparser.add_option("--no-plot", action="store_true", dest="no_plot", default=False,
+                  help="disable visualization (default: %default)")
+oparser.add_option("--fps", dest="fps", default=1.0, type="float", 
+                  help="frames per second for plotting (default: %default)")
+oparser.add_option("--dump", action="store_true", dest="dump", default=False,
+                  help="dump the captured RTTs to a file for post-processing (default: %default)")
+oparser.add_option("--load", dest="loaddump", default='', type="string", 
+                  help="load a dump of captured RTTs")
+oparser.add_option("--hist", action="store_true", dest="hist", default=False,
+                  help="generate a histogram of the RTTs (default: %default)")
+oparser.add_option("--tag", dest="tag", default='', type="string", 
+                  help="optional tag appended to save filename (default: %default)")
+oparser.add_option("--verbose", action="store_true", dest="DEBUG", default=False,
+                  help="print additional info")
+oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=False,
+                  help="calculate aggregate variance (default: %default)")
+
+(hphelper.options, args) = oparser.parse_args()
+options = hphelper.options 
+
+
+if not options.in_slots:
+    options.L = int(1.0*options.L/options.delta)
+    options.M = [max(1,int(m/options.delta)) for m in options.M]
+
+
+
+options.C = (options.plen+24)*8/options.delta    # 8 (preamble) + 12 (IPG) + 4 (cksum) 
+
+
+
+
+if options.DEBUG:
+    # estimate time.time() accuracy
+    hphelper.test_time_res()
+
+options.plot = not options.no_plot
+options.ci = False
+
+# load and set CPU pinning/affinity mapping
+options.CPUID = hphelper.load_process_affinities()
+hphelper.set_affinity('main')
+
+    
+if options.loaddump:
+    DST='localhost'
+else:
+    try:
+        DST = args[0]
+    except IndexError:
+        hphelper.err('please specify a valid destination host!')
+
+
+try:
+    # save covariance data and plot to this file
+    options.savefile = args[1]
+except IndexError:
+    options.savefile = None
+
+if options.tag:
+    options.tag = '_' + options.tag
+
+
+IPDST = socket.gethostbyname(DST)
+options.IPDST = IPDST
+options.DST = DST
+
+dst_route = Route()
+(eth, IPSRC, IPGW) = dst_route.route(IPDST)
+options.eth = eth
+
+try:
+    os.nice(-20)
+except:
+    print "could not set niceness"
+
+
+#################################################################################
+print "source IP:\t %s (%s, %s)" % (IPSRC, options.eth, get_if_hwaddr(eth))
+print "destination IP:\t %s" % IPDST
+print "probe size:\t %d byte" % (options.plen)
+if options.min_rtt>=0:
+    print "minimum RTT:\t %f s" % (options.min_rtt)
+print 'probing rate:\t %.2f Mbps (%.2f),' % (options.rate*options.C/1e6, options.rate),
+print 'delta: %.3e s, %d pps' % (options.delta, options.rate/options.delta)
+print
+
+
+
+#################################################################################
+def run_processes(ns, *procs):
+
+    # reset options
+    ns.SND_READY=False
+    ns.CAP_READY=False
+    ns.RCV_READY=False
+
+    plist = []
+    for p in procs:
+        proc = multiprocessing.Process(target=p['target'], args=p['args'])
+        plist.append(proc)
+
+        # ensure all processes are killed after exit
+        proc.daemon = True
+        proc.start()
+
+
+    try:    
+        while any([p.is_alive() for p in plist]):
+            for p in plist:
+                p.join(1)
+
+    except KeyboardInterrupt:
+        print 'main process interrupted'
+        [p.terminate() for p in plist]
+
+        
+        
+    #try:
+    #        proc.join()
+    #    except KeyboardInterrupt:
+    #        ns.ABORT = True
+            #parser_p.join()
+            #rcvloop_p.terminate()
+            #sendloop_p.terminate()
+
+
+
+
+# initialize IPC channels:
+# pipe for sending (seq, slot, RTTS) tuples from CAPTURE to PARSER
+data_pipe_out, data_pipe_in = multiprocessing.Pipe(duplex=False)
+
+manager = multiprocessing.Manager()
+ns = manager.Namespace()
+
+
+
+ns.cnum = None
+
+psender = {'target':None, 'args':None}
+pcapture = {'target':None, 'args':None}
+pparser = {'target':None, 'args':None}
+
+print 'generating sending times for %i probes' % (options.pnum)
+if options.loaddump:
+    slottimes = np.zeros(options.pnum).astype(int)
+else:
+    # store send times as an slot index
+    slottimes = np.cumsum(np.random.geometric(options.rate, size=options.pnum)).astype(int)
+
+
+
+
+######### setup sender process ############################################
+import sender
+
+if options.loaddump:
+    import dumpreader 
+    dumpreader.init_reader()
+
+    # extract slottimes from dumpfile
+    slottimes = dumpreader.get_slottimes()
+    geotimes = options.delta*slottimes
+
+    # use a dummy sender process
+    psender['target'] = sender.dummyloop
+else:
+    geotimes = options.delta*slottimes
+
+    # generate probing packets and start sending  
+    psender['target'] = sender.sendloop
+
+psender['args'] = (ns, slottimes)
+
+######### setup capture process ############################################
+if options.loaddump:
+    # replace libpcap rcvloop method 
+    pcapture['target'] = dumpreader.dumpreader
+else:
+    import capture
+    pcapture['target'] = capture.rcvloop
+
+pcapture['args'] = (data_pipe_in, ns, geotimes)
+
+######### setup parser process ##############################################
+if options.dump:
+    import dumpwriter
+    pparser['target'] = dumpwriter.dumpwriter
+elif options.aggvar:
+    import parser_av
+    pparser['target'] = parser_av.avparser
+elif options.hist:
+    import parser_stats
+    pparser['target'] = parser_stats.statsparser
+else:
+    import parser_xcov
+    pparser['target'] = parser_xcov.xcparser
+
+pparser['args'] = (data_pipe_out, ns, slottimes)
+
+
+
+
+
+
+######### calibration run #################################################################
+# measure the mean RTT if none is specified by the user
+if options.min_rtt == -1.0 and not options.hist and not options.dump:
+
+    # send cnum probes to get an estimate of the mean RTT to use for
+    # d_min/busy period detection
+    ns.cnum = int(min(max(options.pnum*0.01, 1000),10000))
+    print 'estimating stats from %d samples...' % (ns.cnum)
+
+    import parser_stats
+    pparser_temp_target = pparser['target']
+    pparser['target'] = parser_stats.statsparser
+    
+    try:
+        run_processes(ns, psender, pcapture, pparser)
+    except KeyboardInterrupt:
+        pass
+
+    # reset options
+    ns.cnum = None
+    pparser['target'] = pparser_temp_target
+
+
+try:
+    options.min_rtt = ns.mean_rtt
+    print "overriding minimum RTT:\t\t%.6f s" % options.min_rtt
+except AttributeError:
+    # not calibrated
+    pass
+
+############################################################################################
+
+try:
+    run_processes(ns, psender, pcapture, pparser)
+except KeyboardInterrupt:
+    pass
+
+
+
+
+
+print 'h-probe done.'
+
