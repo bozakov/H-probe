@@ -66,7 +66,6 @@ class var_est(object):
 
 
 class AggVarEstimator(threading.Thread):
-
   
     def __init__(self, buf, slots, M=None):
 
@@ -82,10 +81,6 @@ class AggVarEstimator(threading.Thread):
 
         # sliding window to store arriving values
         self.win = np.zeros(np.max(M)).astype(bool)
-       
-
-
-
 
         # avars stores an estimator for each aggregation level in M
         self.avars = dict.fromkeys(M,0)
@@ -95,7 +90,6 @@ class AggVarEstimator(threading.Thread):
         for m in self.avars.iterkeys():
             self.avars[m] = var_est(m)
 
-    
 
         self.probe_count = 0
         self.slot_count = 0
@@ -403,7 +397,6 @@ def avplotter(av):
                 (d,y0) = av.fit()
                 if y0!=-1:
                     # plot H linear fit and label it
-                    gp.label('H=%.2f' % (av.hurst(d)), min_x*5, y0*1.1, '2')
                     gp.arrow(min_x, y0*(min_x/options.delta)**d, max_x, y0*(max_x/options.delta)**d,'2')
 
 
@@ -423,7 +416,7 @@ def avplotter(av):
         (d,y0) = av.fit()
         if y0!=-1:
             # plot H linear fit and label it
-            gp.label('H=%.2f' % (av.hurst(d)), min_x*5, y0*1.1, '2')
+            gp.label('H=%.2f' % (av.hurst(d)), min_x*5, 1.2*y0*(min_x*5/options.delta)**d, '2')
             gp.arrow(min_x, y0*(min_x/options.delta)**d, max_x, y0*(max_x/options.delta)**d,'2')
 
 
