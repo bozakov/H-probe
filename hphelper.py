@@ -170,17 +170,21 @@ def set_affinity(ppid):
               be either 'rcvloop','sendloop','parser' or 'main'.
         
     """
+    if options.CPUID:
+        CPUID = options.CPUID
+    else:
+        return
 
     pid = os.getpid()
     if options.DEBUG:
-        print 'process [%s]:\t\t CPU=%d (PID=%d)' % (ppid, options.CPUID[ppid], pid)
+        print 'process [%s]:\t\t CPU=%d (PID=%d)' % (ppid, CPUID[ppid], pid)
 
     try:
         import affinity
         # CPUID contains the CPU number for each process id
         # (e.g. parser:2). The pid of the current process is pinned to
         # the corresponding CPU
-        affinity.set_process_affinity_mask(pid, options.CPUID[ppid])
+        affinity.set_process_affinity_mask(pid, CPUID[ppid])
     except (ImportError, KeyError):
         DEBUG('could not set CPU affinity')
 
@@ -202,10 +206,11 @@ def load_process_affinities():
         f = open(mapfile, mode='r')
         for line in f:
             (pid, cpuid) = str.split(line)
-            CPUID[pid]=int(cpuid)
+            CPUID[pid] = int(cpuid)
         f.close()
     except IOError as e:
         DEBUG(mapfile + ' not found')
+        return
     except ValueError as e:
         pass
 

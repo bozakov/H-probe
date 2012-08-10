@@ -241,14 +241,15 @@ class XcovEstimator(threading.Thread):
 
         
         while 1:
-            (seq, snd_time, rtt) = self.buf.popleft()
+            try:  # TODO get rid of try block
+                (seq, snd_time, rtt) = self.buf.popleft()
+            except IndexError:
+                continue                             # loop until buffer is not empty
 
             if seq==-2:
                 break
 
-            #stats.update_seq(seq)
             stats.update(seq, rtt)
-
 
             # save arrival time of first packet
             if not start_time: 
@@ -298,11 +299,6 @@ class XcovEstimator(threading.Thread):
 
 
 
-
-
-
-
-
 try:
     # try to bind cython methods
     # http://wiki.cython.org/FAQ#HowdoIimplementasingleclassmethodinaCythonmodule.3F
@@ -312,8 +308,9 @@ try:
     max = hpfast.max 
     DEBUG('cython methods bounded')
 except (NameError, AttributeError) as e:
-    print e
-    pass
+    if options.DEBUG:
+        print e
+
 
 
 
@@ -331,13 +328,6 @@ def xcparser(pipe, ns, slottimes):
 
     timetime = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
     hphelper.set_affinity('parser') 
-
-
-
-
-
-
-
 
     rcv_buf = deque() # TODO
     #try:
@@ -382,15 +372,14 @@ def xcparser(pipe, ns, slottimes):
     except (ValueError) as e:
         rcv_buf.append((-2,-2,-2))
         print '\a', # received all packets
-        sys.stdout.flush()
-
+        #sys.stdout.flush()
 
     try:
         xc.join()
         xcplotter_thread.join()
     except KeyboardInterrupt:
         pass
-
+    
     ######################
     # display statistics
     xc.stats.run_end = timetime()
@@ -398,17 +387,13 @@ def xcparser(pipe, ns, slottimes):
     xc.stats.pprint()
 
 
-    #print "%d packets received out of order (%d probes, max_seq: %d)" % (stats.rx_out_of_order, options.pnum, max_seq)
-
-
     (d,y0) = xc.fit()
-
     print
     print "\tH=%.2f (slope %.4f y0=%.4f)" % ((d+2)/2, d, y0 )
     print 
 
     options.savefile += '_xc'
-    print "saving covariance to " + options.savefile + " ..."
+    print "saving covariance to " + options.savefile + ".dat ..."
 
     try:
         fs = open(options.savefile + '.dat', mode='w')
@@ -426,7 +411,7 @@ def xcparser(pipe, ns, slottimes):
 
 def xcplotter(xc, gp=None):
 
-        if not options.plot:
+        if options.no_plot:
             return
 
         gp = hplotting.gp_plotter()
@@ -447,7 +432,6 @@ def xcplotter(xc, gp=None):
                  xtics=[(i*options.delta,i) for i in 10**arange(log10(options.L)+1)],
                  )
 
-
         while xc.is_alive():
             time.sleep(fps)
 
@@ -462,7 +446,6 @@ def xcplotter(xc, gp=None):
 
         # calculate confidence interval and 
         ci_level = xc_conf_int()
-
 
 
         # perform fitting for values larger than ci_level

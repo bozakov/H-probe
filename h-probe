@@ -277,6 +277,7 @@ if options.min_rtt == -1.0 and not options.hist and not options.dump:
     # send cnum probes to get an estimate of the mean RTT to use for
     # d_min/busy period detection
     ns.cnum = int(min(max(options.pnum*0.01, 1000),10000))
+    ns.cnum = min(ns.cnum, options.pnum)
     print 'estimating stats from %d samples...' % (ns.cnum)
 
     import parser_stats

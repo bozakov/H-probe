@@ -12,7 +12,8 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 try:
     from numpy import random as prnd
-    from numpy import *
+#    from numpy import *
+    import numpy as np
 
     import pcap               # python-pypcap
     from scapy.all import *
@@ -68,6 +69,7 @@ def sendloop(ns, slottimes):
     set_affinity('sendloop')
 
     timetime = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
+
  
     if ns.cnum:
         pnum = ns.cnum
@@ -96,7 +98,6 @@ def sendloop(ns, slottimes):
     try:
         t_start = timetime()
         geotimes += t_start
-
         pkt = ''.join([pkts[0],payload])
         for i in xrange(1,pnum):
             #hexdump(pkts[i])
@@ -132,30 +133,64 @@ IPDST = options.IPDST
 
 # pre-generate all ICMP packets in an numpy array so we do not have to
 # waste time at runtime
-pkts = empty(options.pnum, dtype=dtype((str, ARRAY_PLEN)))
+pkts = np.empty(options.pnum, dtype=np.dtype((str, ARRAY_PLEN)))
 
 try:
     p = Ether()/IP(dst=IPDST)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
     try:
-        strp = str(p)
+        # generate a packet string which we can modify
+        str_p = str(p)
     except socket.error:
         err("scapy needs root privileges!")
     print 'generating ICMP packets...'
 
-    hdr = strp[:ETHER_HDR_LEN+IP_HDR_LEN]
-    pkt = strp[ETHER_HDR_LEN+IP_HDR_LEN:]
+    hdr = str_p[:ETHER_HDR_LEN+IP_HDR_LEN]
+    pkt = str_p[ETHER_HDR_LEN+IP_HDR_LEN:]
     psize = options.plen + ETHER_HDR_LEN
 
 
-    p = [ hdr, pkt[:2], struct.pack('<H', (0)), pkt[4:16], struct.pack('!L', (0) % 0xFFFFFFFF), pkt[20:]]     # insert 4 byte ID into ICMP payload
 
-    ck = checksum(''.join(p[1:]))                           # calculate initial ICMP cksum
+    # packet and format 
+    p = [ hdr, 
+          pkt[:2], 
+          struct.pack('<H', (0)),                           # p[2] = ICMP checksum
+          pkt[4:16], 
+          struct.pack('!L', (0) % 0xFFFFFFFF),              # p[4] = sequence number (4 bytes)
+          struct.pack('!L', (0) % 0xFFFFFFFF),              # p[5] = slot number (4 bytes)
+          pkt[16+4+4:]]                                     # payload
+
+    ck = checksum(''.join(p[1:])) & 0xFFFF                  # calculate initial ICMP cksum
+    p[2] = struct.pack('H', (ck))                           # update ICMP cksum
+
+
+
+    ###CHK = checksum(''.join(p[1:])) & 0xFFFF                           # calculate initial ICMP cksum
+
+ 
+    j=int(prnd.rand()*1000000000)
+    M_ = sum(struct.unpack('HHHH',''.join(p[4:6])))
 
     for i in xrange(options.pnum):
-        p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte ID in ICMP payload
-        p[2] = struct.pack('<H', (ck))                      # update ICMP cksum
-        pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes in the array
-        ck = (ck-256) % 0xFFFF                              # increment ICMP cksum: see RFC 1141
+        p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
+        p[5] = struct.pack('!L', (j) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
+        M = sum(struct.unpack('HHHH', ''.join(p[4:6])))
+        ck = ck + M_ - M
+
+        p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
+        pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes 
+
+        M_=M
+
+#    exit(1)
+
+     
+#    for i in xrange(options.pnum):
+#        p[2] = struct.pack('<H', (ck))                      # update ICMP cksum
+#        p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
+#        p[5] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
+#        pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes in the array
+#        ck = (ck-256) % 0xFFFF                              # increment next ICMP cksum: see RFC 1141
+
 
 
 except (MemoryError, ValueError):
