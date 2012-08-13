@@ -1,5 +1,5 @@
-rcvloop   2
-sendloop  4
-parser    8
-main      8
+#rcvloop   2
+#sendloop  4
+#parser    8
+#main      8
 
