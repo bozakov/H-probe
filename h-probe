@@ -35,6 +35,8 @@ except ImportError:
     print "\tpython-pypcap"
     print "\tpython-numpy"
     print "\tpython-scapy"
+    print "\tpython-progressbar (optional)"
+    print "use sudo apt-get install in debian"
     exit(1)
 
 
@@ -46,7 +48,7 @@ np.random.seed()
 
 
 usage = "usage: %prog [options] host [savefile]"
-oparser = OptionParser(usage, version = "H-probe version 1.0\n (c) 2012 Zdravko Bozakov, IKT Leibniz Universitaet Hannover")
+oparser = OptionParser(usage, version = "H-probe version 1.0\ncopyright 2012, IKT Leibniz Universitaet Hannover")
 
 oparser.add_option("-n", "--probe-num",  dest="pnum", default=100000, type="int", 
                   help="total number of probes (default: %default)")
@@ -83,7 +85,7 @@ oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=False
 
 (hphelper.options, args) = oparser.parse_args()
 options = hphelper.options 
-
+DEBUG = hphelper.DEBUG
 
 if not options.in_slots:
     options.L = int(1.0*options.L/options.delta)
@@ -215,7 +217,7 @@ slottimes = np.zeros(options.pnum).astype(int)
 
 
 
-
+ns.FATAL_ERROR = False
 ######### setup sender process ############################################
 import sender
 
@@ -257,8 +259,6 @@ pparser['args'] = (data_pipe_out, ns, slottimes)
 
 
 
-
-
 ######### calibration run #################################################################
 # measure the mean RTT if none is specified by the user
 if options.min_rtt == -1.0 and not options.hist and not options.dump:
@@ -267,7 +267,7 @@ if options.min_rtt == -1.0 and not options.hist and not options.dump:
     # d_min/busy period detection
     ns.cnum = int(min(max(options.pnum*0.01, 1000),10000))
     ns.cnum = min(ns.cnum, options.pnum)
-    print 'estimating stats from %d samples...' % (ns.cnum)
+    print 'calibrating using %d samples...' % (ns.cnum)
 
     import parser_stats
     pparser_temp_target = pparser['target']
@@ -285,7 +285,7 @@ if options.min_rtt == -1.0 and not options.hist and not options.dump:
 
 try:
     options.min_rtt = ns.mean_rtt
-    print "overriding minimum RTT:\t\t%.6f s" % options.min_rtt
+    DEBUG("overriding minimum RTT:\t\t%.6f s" % options.min_rtt)
 except AttributeError:
     # not calibrated
     pass

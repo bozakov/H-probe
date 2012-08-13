@@ -9,6 +9,15 @@ import os
 
 options = None
 
+class txt_color:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    DEBUG = '\033[31m'
+    ERROR = '\033[34m'
+    END = '\033[0m'
+
+
 class stats_stats:
 
     rx_total = 0              # total number of valid probes received
@@ -224,9 +233,8 @@ def load_process_affinities():
 
         
 
-
-def err(errstr, errcode=1):
-    print "ERROR:\t" + errstr
+def err(errortext, module_name='', errcode=1):
+    print txt_color.ERROR + 'ERROR' + txt_color.END + ':\t%s' % (errortext)
     raise SystemExit(errcode)
 
 
@@ -234,4 +242,4 @@ def DEBUG(infotext, module_name='', level=1):
     if module_name:
         module_name = ' [' + module_name + ']'
     if options.DEBUG:
-        print 'DEBUG{0:<27}{1}'.format(module_name+':', infotext)
+        print txt_color.DEBUG + 'DEBUG' + txt_color.END + '{0:<27}{1}'.format(module_name+':', infotext)

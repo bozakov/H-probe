@@ -104,7 +104,7 @@ def statsparser(pipe, ns, slottimes=None):
 
     stats.append_stats(median=('median RTT','%.6f' % median(rtts)),
                        std=('std RTT','%.6f' % std(rtts)),
-                       min=('min RTT','%.6f' % min(rtts)),
+                       #min=('min RTT','%.6f' % min(rtts)),
                        max=('max RTT','%.6f' % max(rtts)), )
 
     stats.pprint()

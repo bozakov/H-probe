@@ -362,7 +362,7 @@ def avplotter(av):
         # use these to plot axis ranges
         min_x = options.M[0]*options.delta
         max_x = options.M[1]*options.delta
-        min_y, max_y = (1e-4,1e-0)
+        min_y, max_y = (1e-5,1e-0)
 
 
         # set plot options
@@ -374,7 +374,6 @@ def avplotter(av):
 
         # draw auxiliarry lines
         #y0=1e-0
-        #print y0/options.delta
         #gp.arrow(min_x,y0,    max_x,y0/(max_x/options.delta))
         #gp.arrow(min_x,y0,    y0/0.1,1e-4)
 
