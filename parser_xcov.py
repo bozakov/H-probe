@@ -178,7 +178,7 @@ class XcovEstimator(threading.Thread):
         return cs_xc[1:] 
 
 
-    def fit(self, thresh=0, lag_range=None):
+    def fit(self, thresh=None, lag_range=(None,None)):
         """Performs a linear fit on the covariance estimate.
 
         Performs a regression on the logarithm of the covariance
@@ -188,13 +188,20 @@ class XcovEstimator(threading.Thread):
         Args: 
             thresh: A float above which the covariance values are
             set to NaN.
+            lag_range: A an integer tuple specifying the range of lags
+            to use for the fitting.
 
         """
+        
+        if all(lag_range):
+            min_lag, max_lag = lag_range
+        else:
+            min_lag, max_lag = (1,self.L)
 
-        min_lag, max_lag = (1,self.L)
 
         xc = self.xcov()
-        xc[xc<=thresh]=nan
+        if thresh:
+            xc[xc<=thresh] = nan
 
         logy = log10(xc[min_lag-1:max_lag-1])
         logx = log10(arange(min_lag,max_lag))
@@ -207,7 +214,8 @@ class XcovEstimator(threading.Thread):
 
 
     def getdata_str(self):
-        """Returns a string of values which can be piped into gnuplot."""
+        """Returns a string of covariance values which can be piped
+        into gnuplot."""
         y = self.xcov()
         if any(y):
             return '\n'.join([str(a) for a in y])
@@ -396,7 +404,7 @@ def xcplotter(xc, gp=None):
         getdata_str = xc.getdata_str
         xc_conf_int = xc.conf_int
 
-        # use these to plot x-axis range
+        # use these to plot axis ranges
         min_x, max_x = (1,options.L)
         min_y, max_y = (1e-6,1e-2)
 

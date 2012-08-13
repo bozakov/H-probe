@@ -155,11 +155,11 @@ print
 
 #################################################################################
 def run_processes(ns, *procs):
-
     # reset options
-    ns.SND_READY=False
-    ns.CAP_READY=False
-    ns.RCV_READY=False
+    ns.FATAL_ERROR = False
+    ns.SND_READY = False
+    ns.CAP_READY = False
+    ns.RCV_READY = False
 
     plist = []
     for p in procs:
@@ -293,11 +293,10 @@ except AttributeError:
 ############################################################################################
 
 try:
-    run_processes(ns, psender, pcapture, pparser)
+    if not ns.FATAL_ERROR:
+        run_processes(ns, psender, pcapture, pparser)
 except KeyboardInterrupt:
     pass
-
-
 
 
 

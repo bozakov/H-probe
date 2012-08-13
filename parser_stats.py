@@ -94,17 +94,18 @@ def statsparser(pipe, ns, slottimes=None):
     # omit invalid rtts
     rtts = rtts[rtts!=-1]
 
+    if not any(rtts):
+        print "ERROR: could not calculate average delay"
+        ns.FATAL_ERROR = True
+        raise SystemExit(1)
+
+    # store mean RTT for use in other modules
+    ns.mean_rtt = mean(rtts)
 
     stats.append_stats(median=('median RTT','%.6f' % median(rtts)),
                        std=('std RTT','%.6f' % std(rtts)),
                        min=('min RTT','%.6f' % min(rtts)),
                        max=('max RTT','%.6f' % max(rtts)), )
-
-
-
-
-    # store mean RTT for use in other modules
-    ns.mean_rtt = mean(rtts)
 
     stats.pprint()
 
