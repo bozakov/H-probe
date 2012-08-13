@@ -80,8 +80,10 @@ oparser.add_option("--tag", dest="tag", default='', type="string",
                   help="optional tag appended to save filename (default: %default)")
 oparser.add_option("--verbose", action="store_true", dest="DEBUG", default=False,
                   help="print additional info")
-oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=False,
-                  help="calculate aggregate variance (default: %default)")
+oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=True,
+                  help="estimate aggregate variance (default: %default)")
+oparser.add_option("--xcov", action="store_true", dest="xcov", default=False,
+                  help="estimate path covariance (default: %default)")
 
 (hphelper.options, args) = oparser.parse_args()
 options = hphelper.options 
@@ -250,7 +252,7 @@ elif options.aggvar:
 elif options.hist:
     import parser_stats
     pparser['target'] = parser_stats.statsparser
-else:
+elis options.xcov:
     import parser_xcov
     pparser['target'] = parser_xcov.xcparser
 

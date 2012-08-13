@@ -186,8 +186,6 @@ def set_affinity(ppid):
 
     pid = os.getpid()
 
-    info='CPU=%d:\t process [%s] (PID=%d)' % (CPUID[ppid], ppid, pid)
-    DEBUG(info)
 
     try:
         import affinity
@@ -197,6 +195,9 @@ def set_affinity(ppid):
         affinity.set_process_affinity_mask(pid, CPUID[ppid])
     except (ImportError, KeyError):
         DEBUG('could not set CPU affinity')
+
+    
+    DEBUG('CPU=%d:\t process [%s] (PID=%d)' % (CPUID[ppid], ppid, pid))
 
 
 
@@ -226,7 +227,7 @@ def load_process_affinities():
         pass
 
     if all([k in keys for k in CPUID.iterkeys()]):
-        DEBUG(str(CPUID))
+        DEBUG('loaded: ' + str(CPUID))
         return CPUID
     else:
         return defaults
