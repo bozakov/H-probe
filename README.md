@@ -1,10 +1,6 @@
 H-probe (Ver. 1.0)
 ====================
 
-Outline
-========
-
-
 
 Overview
 =========
@@ -22,8 +18,8 @@ H-Probe injects ICMP echo request probes from the sender to the target and captu
 Requirements
 ============
 
-1) UNIX based operating system 
-2) root privileges to use libpcap to capture incoming packets
+1) Linux operating system 
+2) root privileges to use libpcap for packet capture
 3) python version 2.6 or 2.7 including the following required python packages: pypcap, numpy, scapy. Additionally the following optional python packages can be installed: affinity (pypi), progressbar. To use the plotting functionality gnuplot is required. 
 
 In Debian based distributions you should be able to install all necessary packages using:
@@ -40,17 +36,26 @@ The software has been extensively tested under Linux (specifically Ubuntu 12.04 
 Installation
 ============
 
-After downloading the software you can extract it using
-$> gunzip example.zip
+You can obtain the latest version of the software from GitHub using:
 
-After the software is extracted you can run it immediately using
-$> ./h-probe host
+	git clone https://github.com/bozakov/H-probe.git
+	
+You can also download and uncompress a zip archive with the most recent source files: 
+	
+	wget https://github.com/bozakov/H-probe/zipball/master
+	gunzip bozakov-H-probe*.zip
 
-You can run the software using
-$> ./h-probe [options] host [savefile]
+After changing to the extracted directory you can immediately start using H-probe: 
 
-H-probe can save measurement results into "dumpfiles" that can be loaded and parsed at any time using the '--dump' option.
+	sudo ./h-probe www.nasa.gov
 
+This will start an online estimation run which will display and periodically update a plot of the aggregate variance of the network path from your host to www.nasa.gov. Alternately, you can run a headless session and save all measurement results into a "dumpfile" which  can be loaded and parsed at any time using the '--dump' option.
+
+	sudo ./h-probe www.nasa.gov --dump 
+
+The command line options are given below
+	
+	./h-probe [options] host [savefile]
 
 Options:
   --version             show program's version number and exit
@@ -84,33 +89,39 @@ Options:
 Output
 ======
 
-1) Covariance plot: The plot depicts the covariance versus the time lag in seconds on a log-log scale. For LRD traffic the covariance decays as \tau^{2H-2}. This results into a slope on a log-log scale as 2H-2.
+1) Covariance method ('--aggvar' option): calculates and plots the covariance versus the time lag in seconds on a log-log scale. For LRD traffic the covariance decays as \tau^{2H-2}. This results into a slope on a log-log scale as 2H-2.
 
-2) Aggregate variance plot [default]: The plot depicts the aggregate variance versus the aggregation level M. On a log-log scale the aggregate variance decays with M as a straight line with a slope of 2H-2.
+2) Aggregate variance method ('--xcov' option): generates a plot depicting the aggregate variance versus the aggregation level M. On a log-log scale the aggregate variance decays with M as a straight line with a slope of 2H-2. This is the default estimation method.
 
-3) The plot (either covariance or aggregate variance plot) is saved under the following name:
+3) After a predefined number of probes has been collected (-n option) the measurement terminates and the current plot (either covariance or aggregate variance) is saved under the following name:
 
-	[host]_[date]_[time]_[tag]_[method].eps
+	[savefile]_<tag>_[method].eps
 
-[host]    is the target host name
-[date]    is the current date
-[time]    is the measurement completion time
-[tag]     is an optional user defined tag (--tag option)
-[method]  is the estimation method: av for aggregate variance, xc for covariance plot
+or, if no savefile was specified:
 
-Additionally the plot is saved as a .dat file which can be imported and analyzed in other tools. The plot file is named:
+	[host]_[date]_[time]_<tag>_[method].eps
 
-	[host]_[date]_[time]_[tag]_[method].dat
 
-The plot file contains a new line for each received prode with the following format:
+[host]		is the target host name
+[date]		is the current date (YYYYMMDD)
+[time]		is the measurement completion time (HHMM)
+<tag>		is an optional user defined tag (--tag option)
+[method]	is the estimation method: av for aggregate variance, xc for covariance plot
+
+Additionally the estimate raw data is saved as a .dat file which can be imported and analyzed in other tools. The file name format is identical to the EPS file but has a .dat extension. The file contains a new line for each received probe with the following format:
 
 YY [XX]
 
-YY	is the y-coordinate value (i.e. aggregated variance, or covariance)
+YY		is the y-coordinate value (i.e. aggregated variance, or covariance)
 [XX]	is the (optional) x-coordinate value (i.e. aggregation level or lag)
 
 
-4) Dump file: H-probe can save the measurement results into a dump file for subsequent analysis. The default dump file is named as:
+4) H-probe can save the measurement results into a dump file for subsequent analysis using the '--dump' option. The default dump file is saved as:
+
+	[savefile]_<tag>_[method].dump
+
+or, if no savefile was specified:
+
  	[host]_[date]_[tag]_[time].dump
 
 The dumpfile contains the measured RTTs in the following format:
@@ -123,14 +134,14 @@ CCCCC	is the measured RTT
 
 
 Contact
-========
+=======
 
 zb@ikt.uni-hannover.de
-
+amr.rizk@ikt.uni-hannover.de
 
 
 License
-========
+=======
 
 This software is licensed under the GPL2.
 
