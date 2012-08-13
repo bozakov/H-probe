@@ -252,7 +252,7 @@ elif options.aggvar:
 elif options.hist:
     import parser_stats
     pparser['target'] = parser_stats.statsparser
-elis options.xcov:
+elif options.xcov:
     import parser_xcov
     pparser['target'] = parser_xcov.xcparser
 
