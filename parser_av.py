@@ -265,8 +265,6 @@ except (NameError, AttributeError) as e:
 
 def avparser(pipe, ns, ST=None):
 
-    if options.loaddump:
-        options.tag += '_dump'
     options.tag += '_av'
     if not options.savefile:
         # default save name is destination + YYMMDD + HHMM
@@ -395,6 +393,16 @@ def avplotter(av):
                 gp_cmd("plot '-' with points ls 4\n %s\n e\n"  % (data), flush=True)
 
 
+        # replot with label
+        (d,y0) = av.fit()
+        if y0!=-1:
+            # plot H linear fit and label it
+            gp.label('H=%.2f' % (av.hurst(d)), min_x*5, 2*y0*(min_x*5/options.delta)**d, '2')
+            gp.arrow(min_x, y0*(min_x/options.delta)**d, max_x, y0*(max_x/options.delta)**d,'2')
+        data = getdata_str()
+        if data:
+            gp_cmd("plot '-' with points ls 4\n %s\n e\n"  % (data), flush=True)
+
 
         # save plot to EPS
         gp.set_term_eps(options.savefile)
@@ -402,7 +410,7 @@ def avplotter(av):
         (d,y0) = av.fit()
         if y0!=-1:
             # plot H linear fit and label it
-            gp.label('H=%.2f' % (av.hurst(d)), min_x*5, 1.2*y0*(min_x*5/options.delta)**d, '2')
+            gp.label('H=%.2f' % (av.hurst(d)), min_x*5, 2*y0*(min_x*5/options.delta)**d, '2')
             gp.arrow(min_x, y0*(min_x/options.delta)**d, max_x, y0*(max_x/options.delta)**d,'2')
 
 

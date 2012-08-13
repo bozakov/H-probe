@@ -70,6 +70,7 @@ def sendloop(ns):
     set_affinity('sendloop')
 
     timetime = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
+    time_sleep = time.sleep
 
  
     if ns.cnum:
@@ -94,6 +95,7 @@ def sendloop(ns):
 
     DEBUG('READY', __name__)
 
+    busy_sleep = options.delta/10
 
     payload = '8'*ARRAY_PAYLOAD
     try:
@@ -105,12 +107,12 @@ def sendloop(ns):
             #Ether(pkts[i]).show2()
 
             s.send(pkt)
-            pkt = ''.join([pkts[i],payload])
+            pkt = ''.join([pkts[i],payload])    # add payload to packet
 
             while (timetime() < geotimes[i]):
-                #time.sleep(delta/4)                           # TODO we can reduce the load at the expence of accuracy
+                #time_sleep(busy_sleep)          # TODO we can reduce the load at the expence of accuracy
                 pass
-        s.send(pkt) # send the last prepared packet
+        s.send(pkt)                             # send the last prepared packet
 
     except KeyboardInterrupt:
         pass

@@ -81,7 +81,6 @@ def statsparser(pipe, ns, slottimes=None):
             print e, seq
             pass ### TODO last sequence number causes error
 
-
     
     # omit invalid rtts
     rtts = rtts[rtts!=-1]
@@ -94,7 +93,7 @@ def statsparser(pipe, ns, slottimes=None):
     ns.mean_rtt = mean(rtts)
 
     stats.append_stats(median=('RTT median','%.6f' % median(rtts)),
-                       std=('RTT std. deviation','%.6f' % std(rtts)),
+                       std=('RTT std. dev.','%.6f' % std(rtts)),
                        #min=('min RTT','%.6f' % min(rtts)),
                        max=('RTT maximum','%.6f' % max(rtts)),
                        )

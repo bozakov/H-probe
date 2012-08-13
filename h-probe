@@ -63,7 +63,7 @@ oparser.add_option("-L", "--lag", dest="L", default=10.0, type="float",
 oparser.add_option("-M", "--agg-level", dest="M", nargs=2, default=[0.1,100.0], type="float", 
                   help="min/max aggregation range in seconds for aggregate variance method (default: %default s)")
 oparser.add_option("--in-slots", action="store_true", dest="in_slots", default=False,
-                  help="lag and aggregation levels are given in slots rather than absolute time")
+                  help="maximum lag and the aggregation levels are given in slots rather than absolute time")
 oparser.add_option("-t", "--min-rtt", dest="min_rtt", default=-1.0, type="float", 
                   help="specify the minimum RTT used to detect a busy beriod")
 oparser.add_option("--no-plot", action="store_true", dest="no_plot", default=False,
@@ -93,7 +93,9 @@ ERROR = hphelper.err
 if not options.in_slots:
     options.L = int(1.0*options.L/options.delta)
     options.M = [max(1,int(m/options.delta)) for m in options.M]
-
+else:
+    options.L = int(options.L)
+    options.M = [int(m) for m in options.M]
 
 # set options
 options.plot = not options.no_plot
@@ -107,7 +109,8 @@ elif sum(parsers)==0:
 
 options.C = (options.plen+24)*8/options.delta    # 8 (preamble) + 12 (IPG) + 4 (cksum) 
 
-
+if options.loaddump:
+    options.tag += '_from_dump'
 
 
 if options.DEBUG:
@@ -187,11 +190,13 @@ def run_processes(ns, *procs):
         while any([p.is_alive() for p in plist]):
             for p in plist:
                 p.join(1)
+            if ns.FATAL_ERROR: raise KeyboardInterrupt()
+
 
     except KeyboardInterrupt:
         print 'main process interrupted'
-        [p.terminate() for p in plist]
-
+        for p in plist:
+            p.terminate()
         
         
     #try:
@@ -216,9 +221,9 @@ ns = manager.Namespace()
 
 ns.cnum = None
 
-psender = {'target':None, 'args':None}
-pcapture = {'target':None, 'args':None}
-pparser = {'target':None, 'args':None}
+psender = {'target':None, 'args':None, 'name':'sender'}
+pcapture = {'target':None, 'args':None, 'name':'capture'}
+pparser = {'target':None, 'args':None, 'name':'parser'}
 
 
 #TODO TEMP

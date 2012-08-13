@@ -77,7 +77,6 @@ class XcovEstimator(threading.Thread):
 
             threading.Thread.__init__(self)
 
-
     def reset(self):
             self.__init__()
 
