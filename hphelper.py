@@ -186,13 +186,16 @@ def set_affinity(ppid):
 
     pid = os.getpid()
 
-
+    cpu = CPUID.get(ppid,None)
+    if not cpu:
+        return
+    
     try:
         import affinity
         # CPUID contains the CPU number for each process id
         # (e.g. parser:2). The pid of the current process is pinned to
         # the corresponding CPU
-        affinity.set_process_affinity_mask(pid, CPUID[ppid])
+        affinity.set_process_affinity_mask(pid, cpu)
     except (ImportError, KeyError):
         DEBUG('could not set CPU affinity')
 
@@ -217,6 +220,7 @@ def load_process_affinities():
     try:
         f = open(mapfile, mode='r')
         for line in f:
+            if line[0]=='#': continue
             (pid, cpuid) = str.split(line)
             CPUID[pid] = int(cpuid)
         f.close()
