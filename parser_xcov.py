@@ -69,11 +69,6 @@ class XcovEstimator(threading.Thread):
             self.terminated = False
 
 
-            # use this to plot x-axis range
-            self.min_x = 1
-            self.max_x = options.L
-
-
             self.mean_a = options.rate
             self.var_a = self.mean_a - self.mean_a**2
 
@@ -123,79 +118,92 @@ class XcovEstimator(threading.Thread):
                 return nan
 
 
-    def xcov(self):
-            """Calculates the covariance from the sliding window sums xc."""
-            # flip array so that lag zero is on the left hand side
-            xc = self.xc[::-1]
-            return (xc*1.0/(self.slot_count - arange(self.L, dtype=int)) - self.mean()**2)[1:] 
-
-
-    def conf_int(self, xcov=None):
-            """Returns the 95 confidence interval level for sampled iid Gaussian process."""
-            if not xcov:
-                xcov = self.xcov()
-
-            mean_a = self.mean_a
-            var_a = self.var_a
+    def var(self, mean_w=0.0):
+            """Returns the variance of the observation process """
+            if not mean_w:
+                mean_w = self.mean()
 
             # the covariance at lag 0 is the variance of the
             # observation process
-            var_w = xcov[0]
+            try:
+                return 1.0*self.xc[-1]/self.slot_count - mean_w**2
+            except:
+                return nan
 
-            mean_y_est = self.mean()/self.mean_a
-            var_y_est = (var_w - mean_y_est**2*var_a)/(var_a + mean_a**2)
 
-            A=var_a*mean_y_est**2 + mean_a*var_y_est
-            return 2*A*sqrt((1 + 2*mean_a**2*mean_y_est**2/A)/self.slot_count) # /mean_a**2 
-            #return 2*var_a*sqrt(var_a**2 + 4* mean_a**2)/sqrt(self.slot_count) # ca95
+    def xcov(self):
+        """Calculates the covariance from the sliding window sums
+        xc. Returns lags 1 to L."""
+        # flip array so that lag zero is on the left hand side
+        xc = self.xc[::-1]
+        return (xc*1.0/(self.slot_count - arange(self.L, dtype=int)) - self.mean()**2)[1:] 
+
+
+    def conf_int(self, xcov=None):
+        """Returns the 95 confidence interval level for sampled iid Gaussian process."""
+        if not xcov:
+            xcov = self.xcov()
+
+        mean_a = self.mean_a
+        var_a = self.var_a
+
+        mean_w = self.mean()
+        var_w = self.var(mean_w)
+
+        mean_y_est = mean_w/mean_a
+        var_y_est = (var_w - mean_y_est**2*var_a)/(var_a + mean_a**2)
+
+        A = var_a*mean_y_est**2 + mean_a*var_y_est
+        return 2*sqrt((A**2 + 4*mean_a**2*mean_y_est**2*A)/self.slot_count) 
+        #return 2*var_a*sqrt(var_a**2 + 4* mean_a**2)/sqrt(self.slot_count) # ca95
 
 
     def xcov_int(self):
-            """return covariance estimate using the cumulative sum approach TODO"""
-            xc = self.xcov()
-            var_w = xc[0]
+        """Returns the covariance estimate using the cumulative sum approach TODO"""
+        xc = self.xcov()
+        var_w = xc[0]
 
-            mean_a = self.mean_a
-            var_a = self.var_a
+        mean_a = self.mean_a
+        var_a = self.var_a
 
-            mean_y_est = self.mean()/mean_a
-            var_y_est = (var_w - mean_y_est**2*var_a)/(var_a + mean_a**2)
+        mean_y_est = self.mean()/mean_a
+        var_y_est = (var_w - mean_y_est**2*var_a)/(var_a + mean_a**2)
 
 
-            # calculate correction factor to correct error due to sampling
-            cfactor = insert(var_a/2*ones(self.L-1),0,0)*(var_y_est + mean_y_est**2) #CHECKME TODO
+        # calculate correction factor to correct error due to sampling
+        cfactor = insert(var_a/2*ones(self.L-1),0,0)*(var_y_est + mean_y_est**2) #CHECKME TODO
 
-            #cs_xc = (cumsum(xc) - cfactor)/arange(0, self.L)/mean_a**2
-            cs_xc = (self.cumtrapz(xc) - cfactor)/arange(0, self.L) 
-            return cs_xc[1:] 
+        #cs_xc = (cumsum(xc) - cfactor)/arange(0, self.L)/mean_a**2
+        cs_xc = (self.cumtrapz(xc) - cfactor)/arange(0, self.L) 
+        return cs_xc[1:] 
 
 
     def fit(self, thresh=0, lag_range=None):
-            """Performs a linear fit on the covariance estimate.
-            
-            Performs a regression on the logarithm of the covariance
-            estimate returned by xcov(). Omits all values larger equal
-            thresh.
+        """Performs a linear fit on the covariance estimate.
 
-            Args: 
-                thresh: A float above which the covariance values are
-                set to NaN.
+        Performs a regression on the logarithm of the covariance
+        estimate returned by xcov(). Omits all values larger equal
+        thresh.
 
-            """
+        Args: 
+            thresh: A float above which the covariance values are
+            set to NaN.
 
-            min_lag, max_lag = (1,self.L)
+        """
 
-            xc = self.xcov()
-            xc[xc<=thresh]=nan
+        min_lag, max_lag = (1,self.L)
 
-            logy = log10(xc[min_lag-1:max_lag-1])
-            logx = log10(arange(min_lag,max_lag))
+        xc = self.xcov()
+        xc[xc<=thresh]=nan
 
-            try:
-                (d,y0) = polyfit(logx[~isnan(logy)], logy[~isnan(logy)],1)   
-                return (d, 10**y0)
-            except Exception as e:
-                return (-1, -1)
+        logy = log10(xc[min_lag-1:max_lag-1])
+        logx = log10(arange(min_lag,max_lag))
+
+        try:
+            (d,y0) = polyfit(logx[~isnan(logy)], logy[~isnan(logy)],1)   
+            return (d, 10**y0)
+        except Exception as e:
+            return (-1, -1)
 
 
     def getdata_str(self):
@@ -225,14 +233,8 @@ class XcovEstimator(threading.Thread):
 
     def run(self):
         stats = self.stats
-        slots = self.slots[:]                        # create a local copy of the slot array
+        max_seq = -1                                  # store maximum sequence number received until now
         last_slot = 0
-        current_slot = 0
-
-        # store maximum sequence number received until now
-        max_seq = -1
-        start_time = None
-
 
         if options.min_rtt == -1.0:
             min_rtt = inf
@@ -242,58 +244,39 @@ class XcovEstimator(threading.Thread):
         
         while 1:
             try:  # TODO get rid of try block
-                (seq, snd_time, rtt) = self.buf.popleft()
+                (seq, slot, rtt) = self.buf.popleft()
             except IndexError:
                 continue                             # loop until buffer is not empty
 
-            if seq==-2:
-                break
+            if seq == -2: break
 
-            stats.update(seq, rtt)
-
-            # save arrival time of first packet
-            if not start_time: 
-                start_time = snd_time             
+            stats.update(seq, rtt, slot)
 
             # discard probe if it was received out of order
             if seq<=max_seq:
                 stats.rx_out_of_order += 1
                 continue
 
-            # packet was not sent correctly!!!
-            if snd_time == -1.0:
-                stats.snd_err += 1
-                continue
-
-
-            # each dropped probe indicates a full queue append, a
-            # 1 to the covariance vector
-            while seq!=max_seq+1:
-                max_seq += 1
-                next_slot = slots[max_seq]
-                if next_slot==-1:                         # slottimes vector might be incomplete
-                    continue
-
-                slot_delta = next_slot - last_slot
-                last_slot = next_slot
-
-                # increment dropped packets counter
-                stats.rcv_err += 1
-                self.append(1, slot_delta)
+            ## each dropped probe indicates a full queue append, a
+            ## 1 to the covariance vector
+            #while seq!=max_seq+1:
+            #    max_seq += 1
+            #    next_slot = slots[max_seq]
+            #    if next_slot==-1:                         # slottimes vector might be incomplete
+            #        continue
+            #    slot_delta = next_slot - last_slot
+            #    last_slot = next_slot
+            #    stats.rcv_err += 1                        # increment dropped packets counter
+            #    self.append(1, slot_delta)
 
 
             max_seq = seq
 
-            current_slot = slots[seq]
-            slot_delta = current_slot - last_slot
-            last_slot = current_slot
+            slot_delta = slot - last_slot
+            last_slot = slot
 
-            # update the minimum RTT
-            #if options.min_rtt == -1.0:                  # only update if the RTT was not specified as an option 
-            #    min_rtt = min(rtt, min_rtt)
-
-            # check if probe saw a busy period (0/1)
-            probe = int(rtt > min_rtt)
+            # check if the probe saw a busy period (True/False)
+            probe = rtt > min_rtt
 
             self.append(probe, slot_delta)
 
@@ -315,26 +298,18 @@ except (NameError, AttributeError) as e:
 
 
 
-
-
-
 def xcparser(pipe, ns, slottimes):
     
 
     if not options.savefile:
         # default save name is destination + YYMMDD_HHMM
-        options.savefile = options.DST + time.strftime("_%Y%m%d_%H%M", time.localtime()) + options.tag
+        options.savefile = options.DST + time.strftime("_%Y%m%d_%H%M", time.localtime())
 
 
     timetime = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
     hphelper.set_affinity('parser') 
 
-    rcv_buf = deque() # TODO
-    #try:
-    #    rcv_buf = xcfast.fixed_buf(options.pnum)
-    #except:
-    #    rcv_buf = deque() 
-
+    rcv_buf = deque() # TODO  rcv_buf = xcfast.fixed_buf(options.pnum)
 
     xc = XcovEstimator(rcv_buf, slottimes)
     xc.daemon = True
@@ -344,8 +319,6 @@ def xcparser(pipe, ns, slottimes):
     # start xcplotter Thread
     xcplotter_thread = threading.Thread(target=xcplotter, args=(xc,))
     xcplotter_thread.daemon = True
-
-
 
     #block until sender + receiver say they are ready
     while not all([ns.RCV_READY,ns.SND_READY]):
@@ -364,8 +337,8 @@ def xcparser(pipe, ns, slottimes):
     try:
         while 1:                                              # faster than while True
             data = pipe.recv()
-            (seq, snd_time, rtt) = data
-            rcv_buf.append((seq, snd_time, rtt))              # receive (seq, snd_time, rtt) from rcvloop process
+            (seq, slot, rtt) = data
+            rcv_buf.append((seq, slot, rtt))              # receive (seq, snd_time, rtt) from rcvloop process
     except (KeyboardInterrupt):
         rcv_buf.append((-2,-2,-2))
         print '\n\nparse loop interrupted...'
@@ -380,6 +353,7 @@ def xcparser(pipe, ns, slottimes):
     except KeyboardInterrupt:
         pass
     
+
     ######################
     # display statistics
     xc.stats.run_end = timetime()
@@ -392,7 +366,7 @@ def xcparser(pipe, ns, slottimes):
     print "\tH=%.2f (slope %.4f y0=%.4f)" % ((d+2)/2, d, y0 )
     print 
 
-    options.savefile += '_xc'
+    options.savefile += options.tag +'_xc'
     print "saving covariance to " + options.savefile + ".dat ..."
 
     try:
@@ -422,67 +396,68 @@ def xcplotter(xc, gp=None):
         getdata_str = xc.getdata_str
         xc_conf_int = xc.conf_int
 
+        # use these to plot x-axis range
+        min_x, max_x = (1,options.L)
         min_y, max_y = (1e-6,1e-2)
 
         # set plot options
         gp.setup(xlabel='log_10(lag) [s]', 
                  ylabel='covariance', 
-                 xrange=(xc.min_x, xc.max_x), 
+                 xrange=(min_x, max_x), 
                  yrange=(min_y,max_y),
                  xtics=[(i*options.delta,i) for i in 10**arange(log10(options.L)+1)],
                  )
 
-        while xc.is_alive():
-            time.sleep(fps)
+        ydata = ''
 
-            if options.ci:
+        i=0
+        while xc.is_alive():
+            i += 1
+            if i%10==0:                              # calculate and plot confidence levels + hurst fit every 10 frames
                 ci_level = xc_conf_int()
-                gp.arrow(xc.min_x, ci_level, xc.max_x, ci_level, '3')
+                gp.arrow(min_x, ci_level, max_x, ci_level, '3')
+
+            # TODO does not terminate cleanly if X11 display cannot be opened
+            time.sleep(fps)
 
             ydata = getdata_str()
             if ydata:
                 gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata, flush=True)
 
 
-        # calculate confidence interval and 
+        # calculate confidence interval
         ci_level = xc_conf_int()
-
+        # plot confidence interval level
+        gp.arrow(min_x, ci_level, max_x, ci_level, '3')
 
         # perform fitting for values larger than ci_level
-        (d,y0) = xc.fit(thresh=ci_level)
+        (d,y0) = xc.fit() # TODO thresh=ci_level
         H = xc.hurst(d)
 
-        # plot confidence interval level
-        gp.arrow(xc.min_x, ci_level, xc.max_x, ci_level, '3')
-
-
         ydata = getdata_str()
-            
         if H:
             # plot H linear fit and label it
-            gp_cmd("set label \"H=%.2f\" at %e,%e\n" % (H, 2, 1.2*(y0)))
-            xh = 10**((log10(ci_level)-log10(y0))/d)
-            gp.arrow(1, y0, xh, y0*xh**d, '4')
+            gp.label('H=%.2f' % H, 2, 1.2*(y0))      
+            gp.arrow(1, y0, xc.L, y0*xc.L**d, '4')
 
-            #hdata_str = '\n'.join(["%f %f" % (x,y) for x,y in [(1, y0), (xc.L, y0*xc.L**d )]])
-            #gp_cmd("plot '-' lt 8\n %s\n e" % hdata_str)
-            gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata, flush=True)
+            #xh = 10**((log10(ci_level)-log10(y0))/d)
+            #gp.arrow(1, y0, xh, y0*xh**d, '4')
 
 
-        try:
-            # save current plot as EPS file
-            if options.savefile:
-                # we must replot everything to save it to the file
-                print "saving plot to " + options.savefile + ".eps ..."
-                gp_cmd("set terminal postscript eps color\n")
-                gp_cmd("set output \"%s.eps\"\n" % options.savefile)
-                gp_cmd("set label \"H=%.2f\" at %e,%e\n" % (H, 2, 1.2*y0))
-                gp_cmd("set arrow 2 from 1,%e to %d,%e nohead lw 0 linecolor rgb 'blue'\n" % (y0, xc.L, y0*xc.L**d ))
-                gp_cmd("plot '-' with points ls 1\n %s\n e\n" % (ydata))
+            if ydata:
+                gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata)
 
-        except KeyboardInterrupt:
-            print 'canceled saving.'
+        return
+        # save plot to EPS
+        gp.set_term_eps(options.savefile)
 
 
-        gp_cmd('quit\n') 
-        gp.flush()
+
+        # we must replot everything to save it to the file
+        # plot H linear fit and label it
+        gp.label('H=%.2f' % H, 2, 1.2*(y0))      
+        gp.arrow(1, y0, xc.L, y0*xc.L**d, '4')
+        if ydata:
+            gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata)
+
+        gp.quit()

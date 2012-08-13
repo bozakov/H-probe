@@ -104,20 +104,14 @@ class AggVarEstimator(threading.Thread):
         # start progress bar thread 
         hphelper.bar_init(options, self.stats)
 
-
         threading.Thread.__init__(self)
 
 
 
     def run(self):
-        # store maximum sequence number received until now
-
         stats = self.stats
-        slots = self.slots[:]
-
-        max_seq = -1
+        max_seq = -1                                       # store maximum sequence number received until now
         last_slot = 0
-        current_slot = 0
 
         if options.min_rtt == -1.0:
             min_rtt = np.inf
@@ -131,9 +125,7 @@ class AggVarEstimator(threading.Thread):
             except IndexError:
                 continue
 
-            if seq == -2:
-                return
-
+            if seq == -2: break
 
             stats.update(seq, rtt, slot)
 
@@ -142,32 +134,28 @@ class AggVarEstimator(threading.Thread):
                 stats.rx_out_of_order += 1
                 continue
 
-            # packet was not sent correctly!!!
-            if slot == -1.0:
-                stats.snd_err += 1
-                continue
-
-            # each dropped probe indicates a full queue append, a
-            # 1 to the covariance vector
-            while seq!=max_seq+1:
-                max_seq += 1
-                next_slot = slots[max_seq]
-                if next_slot==-1:                         # slottimes vector might be incomplete
-                    continue
-
-                slot_delta = next_slot - last_slot
-                last_slot = next_slot
-
-                # increment dropped packets counter
-                stats.rcv_err += 1
-                self.append_fast(True, slot_delta-1)
+            ## packet was not sent correctly!
+            #if slot == -1.0:
+            #    stats.snd_err += 1
+            #    continue
+            ## each dropped probe indicates a full queue append, a
+            ## 1 to the covariance vector
+            #while seq!=max_seq+1:
+            #    max_seq += 1
+            #    next_slot = slots[max_seq]
+            #    if next_slot==-1:                         # slottimes vector might be incomplete
+            #        continue
+            #    slot_delta = next_slot - last_slot
+            #    last_slot = next_slot
+            #    stats.rcv_err += 1                        # increment dropped packets counter
+            #    self.append_fast(True, slot_delta-1)
 
 
             max_seq = seq
 
-            current_slot = slots[seq]
-            slot_delta = current_slot - last_slot
-            last_slot = current_slot
+
+            slot_delta = slot - last_slot
+            last_slot = slot
 
             # update the minimum RTT on the fly. Only update if the
             # RTT was not specified as an option
@@ -182,15 +170,16 @@ class AggVarEstimator(threading.Thread):
 
 
     def get_avars(self):
-        '''return variances estimated so far for all aggregation
-        levels stored in M'''
+        """Returns the variances estimated so far for all aggregation
+        levels stored in M"""
         return [self.avars[m].var() for m in self.M]
 
 
 
     def get_avars_corrected(self):
+        """Returns the variances for all aggregation levels, corrected
+        to account for the geometric sampling process"""
         var_w = self.avars[1].var()
-
         vw = self.get_avars()
 
         mean_y_hat = self.mean()/self.mean_a
@@ -201,7 +190,7 @@ class AggVarEstimator(threading.Thread):
         
 
     def fit(self):
-        ''' preform a linear fit on the aggregated variance estimates '''
+        """Performs a linear fit on the aggregated variance estimates"""
         logy = np.log10(self.get_avars_corrected())
         logx = np.log10(self.M)
 
@@ -274,7 +263,7 @@ except (NameError, AttributeError) as e:
 
 
 
-def avparser(pipe, ns, slottimes):
+def avparser(pipe, ns, ST=None):
 
     if options.loaddump:
         options.tag += '_dump'
@@ -285,7 +274,7 @@ def avparser(pipe, ns, slottimes):
 
 
     rcv_buf = deque() # TODO
-    av = AggVarEstimator(rcv_buf, slottimes)
+    av = AggVarEstimator(rcv_buf, ST)
     av.daemon = True
 
 
@@ -399,7 +388,6 @@ def avplotter(av):
                     # plot H linear fit and label it
                     gp.arrow(min_x, y0*(min_x/options.delta)**d, max_x, y0*(max_x/options.delta)**d,'2')
 
-
             # sleep before redrawing
             time.sleep(fps)
 
@@ -409,10 +397,9 @@ def avplotter(av):
 
 
 
-        # save plot
+        # save plot to EPS
         gp.set_term_eps(options.savefile)
-
-
+        # we must replot everything to save it to the file
         (d,y0) = av.fit()
         if y0!=-1:
             # plot H linear fit and label it

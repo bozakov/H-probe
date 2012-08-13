@@ -5,7 +5,8 @@ import time
 
 try:
     import pcap               # python-pypcap
-    from numpy import *
+    #from numpy import *
+    import numpy as np
 
 except ImportError:
     print "!! please make sure the following packages are installed:"
@@ -14,12 +15,12 @@ except ImportError:
     exit(1)
 
 options = hphelper.options
+DEBUG = hphelper.DEBUG
 
 ################################################################################
-def rcvloop(data_pipe, ns, geotimes):
+def rcvloop(data_pipe, ns, geotimes=None):
     """receive ICMP packets from pcap, extract sequence number and
     timestamp and forward to parser over pipe q"""
-
 
     if ns.cnum:
         pnum = ns.cnum
@@ -28,32 +29,25 @@ def rcvloop(data_pipe, ns, geotimes):
 
     hphelper.set_affinity('rcvloop')
 
-    IPDST = options.IPDST
 
     struct_unpack = struct.unpack
     def pcap_cb(time, pkt):
-
         (icmp_type,) = struct_unpack('!B',pkt[34:34+1])
-        (seq,) = struct_unpack('!L',pkt[50:50+4])           # ICMP (offset 34) + 16
+        (seq,slot) = struct_unpack('!LL',pkt[50:58])           # ICMP (offset 34) + 16:50+4+4
 
         if icmp_type==8:                                    # ICMP echo request
-            s_times[seq] = time
+            s_times[seq] = time                             # store send time
         elif icmp_type==0:                                  # ICMP echo reply
-            #r_times[seq] = time
-            #snd_time = geotimes[seq]                       # use pre-generated send times rather than the actual send times for RTT 
-            snd_time = s_times[seq]                         # use actual send time to calculate RTT 
-            data_pipe.send((seq, snd_time, time-snd_time))          # send to parser process 
-#            slot = geotimes[seq]
-#            data_pipe.send((seq, slot, time-snd_time))          # send to parser process 
+            snd_time = s_times[seq]                         # use captured send time to calculate RTT 
+            data_pipe.send((seq, slot, time-snd_time))      # send to parser process 
+    DEBUG('starting receiver ', __name__)
 
-    if options.DEBUG:
-        print 'starting receiver ' + __name__
     # init empty numpy arrays to store snd/rcv times
-    s_times = -1.0*ones(pnum)
+    s_times = -1.0*np.ones(pnum)
 
     try:
         po = pcap.pcap(options.eth, snaplen=80, immediate=False, timeout_ms=3000) # timeout_ms works with dispatch only
-        po.setfilter('(icmp[icmptype] == icmp-echoreply or icmp[icmptype] == icmp-echo) and ip host ' + IPDST)
+        po.setfilter('(icmp[icmptype] == icmp-echoreply or icmp[icmptype] == icmp-echo) and ip host ' + options.IPDST)
         po_dispatch = po.dispatch
     except OSError as e:
         print e
@@ -67,8 +61,7 @@ def rcvloop(data_pipe, ns, geotimes):
     while not ns.SND_READY:
         time.sleep(0.1)
 
-    if options.DEBUG: print 'READY: ' + __name__
-
+    DEBUG('READY', __name__)
     try:
         while po_dispatch(0, pcap_cb):
             pass
@@ -78,3 +71,117 @@ def rcvloop(data_pipe, ns, geotimes):
     # timeout_ms was reached, notify parser that we are done
     data_pipe.send('RCV_DONE')
     #q.close()
+    DEBUG('done', __name__)
+
+
+###############################################################################
+def dumploop(pipe, ns, geotimes=None):
+    if not dump:
+        print 'ERROR: dump file not loaded!'
+        return
+
+    if ns.cnum:
+        pnum = ns.cnum
+    else:
+        pnum = options.pnum
+
+    hphelper.set_affinity('rcvloop')
+
+
+    # notify sender that we are ready to capture
+    ns.RCV_READY = True
+    # block until sender says it is ready
+    while not ns.SND_READY:
+        time.sleep(0.1)
+
+    DEBUG('READY', __name__)
+
+    try:
+        for s in dump.rcv_order[:pnum]:
+            if s == -1:
+                continue
+            seq = s
+            slot = dump.slottimes[seq]
+            rtt = dump.rtts[seq]
+            pipe.send((seq, slot, rtt))      # send to parser process 
+    except IndexError:
+        print s
+        print seq
+    except KeyboardInterrupt:
+        print s
+        print 'canceled reading file.'
+
+    # notify parser that we are done
+    pipe.send('RCV_DONE')
+    #q.close()
+    DEBUG('done ',  __name__)
+
+
+
+class dumpdata(object):
+    """ Store the data loaded from a dumped trace file. """
+    def __init__(self, options):
+        self.slottimes = -1*np.ones(options.pnum).astype(int)
+        self.rcv_order = -1*np.ones(options.pnum).astype(int)
+        self.rtts = np.zeros(options.pnum)  
+        self.dump_options = None
+
+    def stats(self):
+        print 'loaded %d samples (dump mean %.6f)\n' % (np.sum(self.rcv_order!=-1), np.mean(self.rtts))
+
+
+
+def dump_loader():
+    print "loading %d RTTs from " %(options.pnum) + options.loaddump 
+    dump = dumpdata(options)
+
+    try:
+        fs = open(options.loaddump, mode='r')
+        l = fs.readline()
+        (c, IPDST, opt) = str.split(l,' ',2)
+        dump.dump_options = eval(opt)
+        
+        # set some options loaded from the dump file
+        options.IPDST = dump.dump_options['IPDST']
+        options.DST = dump.dump_options['DST']
+        options.plen = dump.dump_options['plen']
+        options.delta = dump.dump_options['delta']
+    except Exception as e:
+        print 'error loading dump file'
+        print e
+        raise SystemExit(1)
+    except SyntaxError as se:
+        print 'could not parse options'
+
+
+    line_count = 0
+    try:
+        while (line_count < options.pnum):  
+            try:
+                l = fs.readline()
+                (s, snd_slot, rtt) = str.split(l)
+                seq = int(s)
+                dump.slottimes[seq] = int(snd_slot)
+                dump.rtts[seq] = float(rtt)
+                dump.rcv_order[line_count] = seq
+            except ValueError:
+                break
+            except IndexError:
+                # specified options.pnum is too small 
+                break
+            line_count += 1
+    except KeyboardInterrupt:
+        pass # canceled reading file
+
+    fs.close()
+    dump.stats()
+
+    if options.min_rtt==-1:
+        options.min_rtt = np.mean(dump.rtts)
+
+    return dump
+
+
+
+if options.loaddump:
+    dump = dump_loader()

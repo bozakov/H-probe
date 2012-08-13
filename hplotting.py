@@ -2,17 +2,17 @@
 # GPL2
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
-import subprocess
-import hphelper
+import os
 import time
-
 try:
     from numpy import *
-
 except ImportError:
     print __name__ + ": please make sure the following packages are installed:"
     print "\tpython-numpy"
     exit(1)
+
+import subprocess
+import hphelper
 
 options = hphelper.options
 
@@ -22,16 +22,33 @@ class gp_plotter(object):
     def __init__(self, loglog=True, ascii=False):
 
         self.gp = None
+        if os.getenv('DISPLAY') is None:
+            options.plot = False
+            options.no_plot = True
+            return
+
         self.PLOT_LOG = loglog
         try:
             self.gp = subprocess.Popen(['gnuplot', '-noraise', '-persist', '-background', 'white'], 
                                        stdin=subprocess.PIPE, 
-                                       stderr=subprocess.STDOUT, stdout=subprocess.PIPE,  # disable output
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,  # disable output
                                        bufsize=-1)
         except Exception as e:
             print e
             return self.gp
 
+
+        self.cmd('set term x11', flush=True)
+        #self.gp.stdout.readline()
+        #if self.gp.stdout.readline()[:31] == 'gnuplot: unable to open display':
+        #    print 'could not open X11 display'
+        #    options.plot = False
+        #    options.no_plot = True
+        #    return
+        #    # TODO this should be fixed
+        
+        if ascii:
+            self.cmd('set term dumb')           # ASCII output
 
         opt_string = "r=%.3f, l=%d, delta=%.3e" % (options.rate, options.plen, options.delta)
         self.cmd('set title "%s %s ( %s )"' % (options.DST, time.ctime(), opt_string ))
@@ -49,12 +66,7 @@ class gp_plotter(object):
         self.cmd('set style line 3 pointtype 0 pointsize 1.0 linecolor rgb "red"')    
         self.cmd('set style line 8 lt 1 linecolor rgb "blue"')     # blue line
 
-        self.cmd('set term x11')
-        if ascii:
-            self.cmd('set term dumb')           # ASCII output
-
-
-        self.gp.stdin.flush()
+        self.flush()
 
 
     def setup(self, **args):

@@ -51,18 +51,18 @@ def checksum(packet):
 
 
 
-def dummyloop(ns, slottimes):
+def dummyloop(ns):
     # notify receiver that we are ready to send
     ns.SND_READY=True
     # block until receiver says it is ready
     while not ns.RCV_READY:
         time.sleep(0.1)
 
-    DEBUG('READY: ' + __name__)
+    DEBUG('READY', __name__)
 
 
 ################################################################################
-def sendloop(ns, slottimes):
+def sendloop(ns):
     addr = (options.eth, 0x0800)
     geotimes = options.delta*slottimes
 
@@ -91,10 +91,10 @@ def sendloop(ns, slottimes):
     while not ns.RCV_READY:
         time.sleep(0.1)
 
-    DEBUG('READY: ' + __name__)
+    DEBUG('READY', __name__)
 
 
-    payload = '8'*payload_len
+    payload = '8'*ARRAY_PAYLOAD
     try:
         t_start = timetime()
         geotimes += t_start
@@ -131,75 +131,70 @@ ARRAY_PAYLOAD = max((options.plen + ETHER_HDR_LEN) - ARRAY_PLEN,0) # need to app
 IPDST = options.IPDST
 
 
-# pre-generate all ICMP packets in an numpy array so we do not have to
-# waste time at runtime
-pkts = np.empty(options.pnum, dtype=np.dtype((str, ARRAY_PLEN)))
 
-try:
-    p = Ether()/IP(dst=IPDST)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
+if not options.loaddump:
+    print 'generating sending times for %i probes' % (options.pnum)
+    # store send times as an slot index
+    slottimes = np.cumsum(np.random.geometric(options.rate, size=options.pnum)).astype(int)
+
+
+
+    # pre-generate all ICMP packets in an numpy array so we do not have to
+    # waste time at runtime
+    pkts = np.empty(options.pnum, dtype=np.dtype((str, ARRAY_PLEN)))
+
     try:
-        # generate a packet string which we can modify
-        str_p = str(p)
-    except socket.error:
-        err("scapy needs root privileges!")
-    print 'generating ICMP packets...'
+        p = Ether()/IP(dst=IPDST)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
+        try:
+            # generate a packet string which we can modify
+            str_p = str(p)
+        except socket.error:
+            err("scapy needs root privileges!")
+        print 'generating ICMP packets...'
 
-    hdr = str_p[:ETHER_HDR_LEN+IP_HDR_LEN]
-    pkt = str_p[ETHER_HDR_LEN+IP_HDR_LEN:]
-    psize = options.plen + ETHER_HDR_LEN
-
-
-
-    # packet and format 
-    p = [ hdr, 
-          pkt[:2], 
-          struct.pack('<H', (0)),                           # p[2] = ICMP checksum
-          pkt[4:16], 
-          struct.pack('!L', (0) % 0xFFFFFFFF),              # p[4] = sequence number (4 bytes)
-          struct.pack('!L', (0) % 0xFFFFFFFF),              # p[5] = slot number (4 bytes)
-          pkt[16+4+4:]]                                     # payload
-
-    ck = checksum(''.join(p[1:])) & 0xFFFF                  # calculate initial ICMP cksum
-    p[2] = struct.pack('H', (ck))                           # update ICMP cksum
+        hdr = str_p[:ETHER_HDR_LEN+IP_HDR_LEN]
+        pkt = str_p[ETHER_HDR_LEN+IP_HDR_LEN:]
+        psize = options.plen + ETHER_HDR_LEN
 
 
 
-    ###CHK = checksum(''.join(p[1:])) & 0xFFFF                           # calculate initial ICMP cksum
+        # packet and format 
+        p = [ hdr, 
+              pkt[:2], 
+              struct.pack('<H', (0)),                           # p[2] = ICMP checksum
+              pkt[4:16], 
+              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[4] = sequence number (4 bytes)
+              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[5] = slot number (4 bytes)
+              pkt[16+4+4:]]                                     # payload
 
+        ck = checksum(''.join(p[1:])) & 0xFFFF                  # calculate initial ICMP cksum
+        p[2] = struct.pack('H', (ck))                           # update ICMP cksum
+
+
+
+        M_ = sum(struct.unpack('HHHH',''.join(p[4:6])))
+        j = 0
+        for i in xrange(options.pnum):
+            j=long(slottimes[i])
+            p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
+            p[5] = struct.pack('!L', (j) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
+            M = sum(struct.unpack('HHHH', ''.join(p[4:6])))
+            ck = ck + M_ - M
+
+            p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
+            pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes 
+
+            M_=M
+
+
+
+    except (MemoryError, ValueError):
+        err("Not enough memory!",2)
+    except KeyboardInterrupt:
+        print 'terminated by user.'
+        raise SystemExit(-1)
+
+    print 'finished generating packets'
  
-    j=int(prnd.rand()*1000000000)
-    M_ = sum(struct.unpack('HHHH',''.join(p[4:6])))
 
-    for i in xrange(options.pnum):
-        p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
-        p[5] = struct.pack('!L', (j) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
-        M = sum(struct.unpack('HHHH', ''.join(p[4:6])))
-        ck = ck + M_ - M
-
-        p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
-        pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes 
-
-        M_=M
-
-#    exit(1)
-
-     
-#    for i in xrange(options.pnum):
-#        p[2] = struct.pack('<H', (ck))                      # update ICMP cksum
-#        p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
-#        p[5] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
-#        pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes in the array
-#        ck = (ck-256) % 0xFFFF                              # increment next ICMP cksum: see RFC 1141
-
-
-
-except (MemoryError, ValueError):
-    err("Not enough memory!",2)
-except KeyboardInterrupt:
-    print 'terminated by user.'
-    raise SystemExit(-1)
-
-print 'finished generating packets'
-
-payload_len = ARRAY_PAYLOAD
 

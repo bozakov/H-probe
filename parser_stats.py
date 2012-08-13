@@ -32,7 +32,7 @@ def plot_hist(rtts):
 
 
 
-def statsparser(pipe, ns, slottimes):
+def statsparser(pipe, ns, slottimes=None):
     hphelper.set_affinity('parser')
     if options.DEBUG:
         print 'starting parser: ' + __name__
@@ -44,7 +44,7 @@ def statsparser(pipe, ns, slottimes):
         time.sleep(0.1)
 
     stats = hphelper.stats_stats()
-    slots = slottimes[:]
+
 
 
     # init empty array to store RTTs for histogram
@@ -65,10 +65,8 @@ def statsparser(pipe, ns, slottimes):
             if data == 'RCV_DONE':
                 break
            
-            (seq, snd_time, rtt) = data
-            currslot = slots[seq]
-
-            if snd_time == -1:
+            (seq, currslot, rtt) = data
+            if currslot == -1:
                  rtt = -1
                  stats.snd_err += 1
                  continue

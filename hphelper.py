@@ -176,8 +176,9 @@ def set_affinity(ppid):
         return
 
     pid = os.getpid()
-    if options.DEBUG:
-        print 'process [%s]:\t\t CPU=%d (PID=%d)' % (ppid, CPUID[ppid], pid)
+
+    info='CPU=%d:\t process [%s] (PID=%d)' % (CPUID[ppid], ppid, pid)
+    DEBUG(info)
 
     try:
         import affinity
@@ -202,6 +203,7 @@ def load_process_affinities():
     keys = ['rcvloop','sendloop','parser','main'] # required keys
 
     CPUID={}
+    defaults = {'rcvloop':1,'sendloop':2,'parser':1,'main':1}
     try:
         f = open(mapfile, mode='r')
         for line in f:
@@ -210,7 +212,7 @@ def load_process_affinities():
         f.close()
     except IOError as e:
         DEBUG(mapfile + ' not found')
-        return
+        return defaults
     except ValueError as e:
         pass
 
@@ -218,7 +220,7 @@ def load_process_affinities():
         DEBUG(str(CPUID))
         return CPUID
     else:
-        return {}
+        return defaults
 
         
 
@@ -228,7 +230,8 @@ def err(errstr, errcode=1):
     raise SystemExit(errcode)
 
 
-def DEBUG(infotext, level=1):
+def DEBUG(infotext, module_name='', level=1):
+    if module_name:
+        module_name = ' [' + module_name + ']'
     if options.DEBUG:
-        print 'DEBUG:\t' + infotext
-
+        print 'DEBUG{0:<27}{1}'.format(module_name+':', infotext)

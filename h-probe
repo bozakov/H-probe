@@ -208,12 +208,10 @@ psender = {'target':None, 'args':None}
 pcapture = {'target':None, 'args':None}
 pparser = {'target':None, 'args':None}
 
-print 'generating sending times for %i probes' % (options.pnum)
-if options.loaddump:
-    slottimes = np.zeros(options.pnum).astype(int)
-else:
-    # store send times as an slot index
-    slottimes = np.cumsum(np.random.geometric(options.rate, size=options.pnum)).astype(int)
+
+#TODO TEMP
+slottimes = np.zeros(options.pnum).astype(int)
+
 
 
 
@@ -222,32 +220,23 @@ else:
 import sender
 
 if options.loaddump:
-    import dumpreader 
-    dumpreader.init_reader()
-
-    # extract slottimes from dumpfile
-    slottimes = dumpreader.get_slottimes()
-    geotimes = options.delta*slottimes
-
     # use a dummy sender process
     psender['target'] = sender.dummyloop
 else:
-    geotimes = options.delta*slottimes
-
     # generate probing packets and start sending  
     psender['target'] = sender.sendloop
 
-psender['args'] = (ns, slottimes)
+psender['args'] = (ns,)
 
 ######### setup capture process ############################################
+import capture
 if options.loaddump:
     # replace libpcap rcvloop method 
-    pcapture['target'] = dumpreader.dumpreader
+    pcapture['target'] = capture.dumploop   
 else:
-    import capture
     pcapture['target'] = capture.rcvloop
 
-pcapture['args'] = (data_pipe_in, ns, geotimes)
+pcapture['args'] = (data_pipe_in, ns)
 
 ######### setup parser process ##############################################
 if options.dump:
