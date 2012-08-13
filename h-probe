@@ -70,30 +70,40 @@ oparser.add_option("--no-plot", action="store_true", dest="no_plot", default=Fal
                   help="disable visualization (default: %default)")
 oparser.add_option("--fps", dest="fps", default=1.0, type="float", 
                   help="frames per second for plotting (default: %default)")
+oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=False,
+                  help="estimate aggregate variance (default)")
+oparser.add_option("--xcov", action="store_true", dest="xcov", default=False,
+                  help="estimate path covariance")
+oparser.add_option("--hist", action="store_true", dest="hist", default=False,
+                  help="generate a histogram of the RTTs")
 oparser.add_option("--dump", action="store_true", dest="dump", default=False,
-                  help="dump the captured RTTs to a file for post-processing (default: %default)")
+                  help="dump the captured RTTs to a file for post-processing")
 oparser.add_option("--load", dest="loaddump", default='', type="string", 
                   help="load a dump of captured RTTs")
-oparser.add_option("--hist", action="store_true", dest="hist", default=False,
-                  help="generate a histogram of the RTTs (default: %default)")
 oparser.add_option("--tag", dest="tag", default='', type="string", 
                   help="optional tag appended to save filename (default: %default)")
 oparser.add_option("--verbose", action="store_true", dest="DEBUG", default=False,
                   help="print additional info")
-oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=True,
-                  help="estimate aggregate variance (default: %default)")
-oparser.add_option("--xcov", action="store_true", dest="xcov", default=False,
-                  help="estimate path covariance (default: %default)")
 
 (hphelper.options, args) = oparser.parse_args()
 options = hphelper.options 
 DEBUG = hphelper.DEBUG
+ERROR = hphelper.err
 
 if not options.in_slots:
     options.L = int(1.0*options.L/options.delta)
     options.M = [max(1,int(m/options.delta)) for m in options.M]
 
 
+# set options
+options.plot = not options.no_plot
+options.ci = False
+
+parsers = [options.aggvar, options.xcov, options.hist, options.dump]
+if sum(parsers)>1:
+    ERROR('multiple parsers were specified')
+elif sum(parsers)==0:
+    options.aggvar = True
 
 options.C = (options.plen+24)*8/options.delta    # 8 (preamble) + 12 (IPG) + 4 (cksum) 
 
@@ -104,8 +114,6 @@ if options.DEBUG:
     # estimate time.time() accuracy
     hphelper.test_time_res()
 
-options.plot = not options.no_plot
-options.ci = False
 
 # load and set CPU pinning/affinity mapping
 options.CPUID = hphelper.load_process_affinities()
@@ -263,7 +271,9 @@ pparser['args'] = (data_pipe_out, ns, slottimes)
 
 ######### calibration run #################################################################
 # measure the mean RTT if none is specified by the user
-if options.min_rtt == -1.0 and not options.hist and not options.dump:
+if (options.min_rtt == -1.0 and 
+    not options.hist and 
+    not options.dump):
 
     # send cnum probes to get an estimate of the mean RTT to use for
     # d_min/busy period detection

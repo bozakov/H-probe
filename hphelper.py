@@ -82,14 +82,14 @@ class stats_stats:
         print "max sqeuence nr.:\t\t%d" % (self.seq)
         if self.rx_total:
             print "total probes received:\t\t%d" %(self.rx_total)
-            print "mean RTT:        \t\t%.6f" % (self.mean_rtt())
+            print "RTT mean:        \t\t%.6f" % (self.mean_rtt())
         if self.rx_slots:
             print "max. slot received:\t\t%d" % (self.rx_slots)
             print "sample probing intensity:\t%.6f" % (self.mean_a())
         if self.min_rtt!=np.inf:
-            print "min RTT:         \t\t%.6f" % (self.min_rtt)
+            print "RTT minimum:         \t\t%.6f" % (self.min_rtt)
         if self.max_rtt!=-np.inf:
-            print "max RTT:         \t\t%.6f" % (self.max_rtt)
+            print "RTT maximum:         \t\t%.6f" % (self.max_rtt)
          
         # print any extra statistics
         for k,v in self.extra_stats.iteritems():

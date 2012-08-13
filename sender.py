@@ -2,6 +2,7 @@
 # GPL2
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
+import sys
 import time
 import logging
 
@@ -150,7 +151,9 @@ if not options.loaddump:
             str_p = str(p)
         except socket.error:
             err("scapy needs root privileges!")
-        print 'generating ICMP packets...'
+        print 'generating ICMP packets...', 
+        sys.stdout.flush()
+
 
         hdr = str_p[:ETHER_HDR_LEN+IP_HDR_LEN]
         pkt = str_p[ETHER_HDR_LEN+IP_HDR_LEN:]
@@ -194,7 +197,7 @@ if not options.loaddump:
         print 'terminated by user.'
         raise SystemExit(-1)
 
-    print 'finished generating packets'
+    print 'done'
  
 
 
