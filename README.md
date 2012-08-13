@@ -1,9 +1,9 @@
 H-probe (Ver. 1.0)
-====================
+==================
 
 
 Overview
-=========
+--------
 
 H-probe is an online active probing tool for estimating traffic correlations from end-to-end measurements. H-probe does not rely on a receiver as it uses ICMP echo packets. It uses libpcap to capture returning ICMP echo replies. From the timing information H-probe is able to estimate the correlation (covariance) of the cross traffic sharing the end-to-end path with the probing traffic. For Internet aggregate traffic it is known [Leland et al. '94] that it is long range dependent (LRD) with Hurst parameter H. The Hurst parameter can be estimated from the covariance slope that is given by 2H-2. H-probe also implements the aggregate variance method known from [Taqqu et al. '95], which is more robust than the covariance, for estimating H. 
 
@@ -16,11 +16,11 @@ H-Probe injects ICMP echo request probes from the sender to the target and captu
 
 
 Requirements
-============
+------------
 
-1) Linux operating system 
-2) root privileges to use libpcap for packet capture
-3) python version 2.6 or 2.7 including the following required python packages: pypcap, numpy, scapy. Additionally the following optional python packages can be installed: affinity (pypi), progressbar. To use the plotting functionality gnuplot is required. 
+1. Linux operating system 
+2. root privileges to use libpcap for packet capture
+3. python version 2.6 or 2.7 including the following required python packages: pypcap, numpy, scapy. Additionally the following optional python packages can be installed: affinity (pypi), progressbar. To use the plotting functionality gnuplot is required. 
 
 In Debian based distributions you should be able to install all necessary packages using:
 
@@ -34,7 +34,7 @@ The software has been extensively tested under Linux (specifically Ubuntu 12.04 
 	
 
 Installation
-============
+------------
 
 You can obtain the latest version of the software from GitHub using:
 
@@ -57,43 +57,43 @@ The command line options are given below
 	
 	./h-probe [options] host [savefile]
 
-Options:
-  --version             show program's version number and exit
-  -h, --help            show this help message and exit
-  -n PNUM, --probe-num=PNUM
-                        total number of probes (default: 100000)
-  -d DELTA, --delta=DELTA
-                        min. time in seconds between probes (default: 1e-3)
-  -r RATE, --rate=RATE  mean probing intensity between 0 and 1 (default: 0.1)
-  -s PLEN, --psize=PLEN
-                        total probe packet size in bytes (default: 64)
-  -L L, --lag=L         maximum lag in seconds (default: 10.0 s)
-  -M M, --agg-level=M   min/max aggregation range in seconds for aggregate
-                        variance method (default: [0.10000000000000001, 100.0]
-                        s)
-  --in-slots            maximum lag and the aggregation levels are given in
-                        slots rather than absolute time
-  -t MIN_RTT, --min-rtt=MIN_RTT
-                        specify the minimum RTT used to detect a busy beriod
-  --no-plot             disable visualization (default: False)
-  --fps=FPS             frames per second for plotting (default: 1.0)
-  --aggvar              estimate aggregate variance (default)
-  --xcov                estimate path covariance
-  --hist                generate a histogram of the RTTs
-  --dump                dump the captured RTTs to a file for post-processing
-  --load=LOADDUMP       load a dump of captured RTTs
-  --tag=TAG             optional tag appended to save filename (default: )
-  --verbose             print additional info
+	Options:
+	  --version             show program's version number and exit
+	  -h, --help            show this help message and exit
+	  -n PNUM, --probe-num=PNUM
+	                        total number of probes (default: 100000)
+	  -d DELTA, --delta=DELTA
+	                        min. time in seconds between probes (default: 1e-3)
+	  -r RATE, --rate=RATE  mean probing intensity between 0 and 1 (default: 0.1)
+	  -s PLEN, --psize=PLEN
+	                        total probe packet size in bytes (default: 64)
+	  -L L, --lag=L         maximum lag in seconds (default: 10.0 s)
+	  -M M, --agg-level=M   min/max aggregation range in seconds for aggregate
+	                        variance method (default: [0.10000000000000001, 100.0]
+	                        s)
+	  --in-slots            maximum lag and the aggregation levels are given in
+	                        slots rather than absolute time
+	  -t MIN_RTT, --min-rtt=MIN_RTT
+	                        specify the minimum RTT used to detect a busy beriod
+	  --no-plot             disable visualization (default: False)
+	  --fps=FPS             frames per second for plotting (default: 1.0)
+	  --aggvar              estimate aggregate variance (default)
+	  --xcov                estimate path covariance
+	  --hist                generate a histogram of the RTTs
+	  --dump                dump the captured RTTs to a file for post-processing
+	  --load=LOADDUMP       load a dump of captured RTTs
+	  --tag=TAG             optional tag appended to save filename (default: )
+	  --verbose             print additional info
 
 
 Output
-======
+------
 
-1) Covariance method ('--aggvar' option): calculates and plots the covariance versus the time lag in seconds on a log-log scale. For LRD traffic the covariance decays as \tau^{2H-2}. This results into a slope on a log-log scale as 2H-2.
+1. Covariance method ('--aggvar' option): calculates and plots the covariance versus the time lag in seconds on a log-log scale. For LRD traffic the covariance decays as \tau^{2H-2}. This results into a slope on a log-log scale as 2H-2.
 
-2) Aggregate variance method ('--xcov' option): generates a plot depicting the aggregate variance versus the aggregation level M. On a log-log scale the aggregate variance decays with M as a straight line with a slope of 2H-2. This is the default estimation method.
+2. Aggregate variance method ('--xcov' option): generates a plot depicting the aggregate variance versus the aggregation level M. On a log-log scale the aggregate variance decays with M as a straight line with a slope of 2H-2. This is the default estimation method.
 
-3) After a predefined number of probes has been collected (-n option) the measurement terminates and the current plot (either covariance or aggregate variance) is saved under the following name:
+3. After a predefined number of probes has been collected (-n option) the measurement terminates and the current plot (either covariance or aggregate variance) is saved under the following name:
 
 	[savefile]_<tag>_[method].eps
 
@@ -102,21 +102,21 @@ or, if no savefile was specified:
 	[host]_[date]_[time]_<tag>_[method].eps
 
 
-[host]		is the target host name
-[date]		is the current date (YYYYMMDD)
-[time]		is the measurement completion time (HHMM)
-<tag>		is an optional user defined tag (--tag option)
-[method]	is the estimation method: av for aggregate variance, xc for covariance plot
+- [host]		is the target host name
+- [date]		is the current date (YYYYMMDD)
+- [time]		is the measurement completion time (HHMM)
+- <tag>		is an optional user defined tag (--tag option)
+- [method]	is the estimation method: av for aggregate variance, xc for covariance plot
 
 Additionally the estimate raw data is saved as a .dat file which can be imported and analyzed in other tools. The file name format is identical to the EPS file but has a .dat extension. The file contains a new line for each received probe with the following format:
 
 YY [XX]
 
-YY		is the y-coordinate value (i.e. aggregated variance, or covariance)
-[XX]	is the (optional) x-coordinate value (i.e. aggregation level or lag)
+- YY		is the y-coordinate value (i.e. aggregated variance, or covariance)
+- [XX]	is the (optional) x-coordinate value (i.e. aggregation level or lag)
 
 
-4) H-probe can save the measurement results into a dump file for subsequent analysis using the '--dump' option. The default dump file is saved as:
+4. H-probe can save the measurement results into a dump file for subsequent analysis using the '--dump' option. The default dump file is saved as:
 
 	[savefile]_<tag>_[method].dump
 
@@ -128,20 +128,21 @@ The dumpfile contains the measured RTTs in the following format:
 
 AA BB CCCCC
 
-AA 	is the probe sequence number
-BB 	is the slot number of the probe (each slot is Delta wide)
-CCCCC	is the measured RTT
+- AA 	is the probe sequence number
+- BB 	is the slot number of the probe (each slot is Delta wide)
+- CCCCC	is the measured RTT
 
 
 Contact
-=======
+-------
 
 zb@ikt.uni-hannover.de
 amr.rizk@ikt.uni-hannover.de
 
+You can find the project page here
 
 License
-=======
+-------
 
 This software is licensed under the GPL2.
 
