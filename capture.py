@@ -137,8 +137,9 @@ def dump_loader():
 
     try:
         fs = open(options.loaddump, mode='r')
-        l = fs.readline()
-        (c, IPDST, opt) = str.split(l,' ',2)
+        # first line should be a comment containing options
+        l = fs.readline() 
+        (c, STR, opt) = str.split(l,' ',2)
         dump.dump_options = eval(opt)
         
         # set some options loaded from the dump file
@@ -146,6 +147,7 @@ def dump_loader():
         options.DST = dump.dump_options['DST']
         options.plen = dump.dump_options['plen']
         options.delta = dump.dump_options['delta']
+        options.start_time = dump.dump_options['start_time']
     except Exception as e:
         print 'error loading dump file'
         print e

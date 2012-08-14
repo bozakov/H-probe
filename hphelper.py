@@ -179,16 +179,9 @@ def set_affinity(ppid):
               be either 'rcvloop','sendloop','parser' or 'main'.
         
     """
-    if options.CPUID:
-        CPUID = options.CPUID
-    else:
-        return
-
     pid = os.getpid()
-
-    cpu = CPUID.get(ppid,None)
-    if not cpu:
-        return
+    cpu = options.CPUID.get(ppid,None)
+    if not cpu: return
     
     try:
         import affinity
@@ -200,7 +193,7 @@ def set_affinity(ppid):
         DEBUG('could not set CPU affinity')
 
     
-    DEBUG('CPU=%d:\t process [%s] (PID=%d)' % (CPUID[ppid], ppid, pid))
+    DEBUG('CPU=%d:\t process [%s] (PID=%d)' % (cpu, ppid, pid))
 
 
 
@@ -230,8 +223,11 @@ def load_process_affinities():
     except ValueError as e:
         pass
 
-    if all([k in keys for k in CPUID.iterkeys()]):
-        DEBUG('loaded: ' + str(CPUID))
+    if any(CPUID):
+        info = ''
+        for p,c in CPUID.iteritems():
+            info += str(p) + ':' + str(int(np.log2(c))) + ' '
+        DEBUG('loaded   ' + info)
         return CPUID
     else:
         return defaults

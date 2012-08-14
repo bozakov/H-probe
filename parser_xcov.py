@@ -14,6 +14,7 @@ from collections import deque
 
 try:
     from numpy import *
+    import numpy as np
     import types                          # for cython binding
 except ImportError:
     print __name__ + ": please make sure the following packages are installed:"
@@ -76,10 +77,6 @@ class XcovEstimator(threading.Thread):
             hphelper.bar_init(options, self.stats)
 
             threading.Thread.__init__(self)
-
-    def reset(self):
-            self.__init__()
-
 
 
     def append(self, x, zcount = 0):
@@ -222,7 +219,6 @@ class XcovEstimator(threading.Thread):
             return None
 
 
-
     def hurst(self, d=None, thresh=0):
         """Returns the Hurst parameter estimate."""
         if not d:
@@ -306,12 +302,15 @@ except (NameError, AttributeError) as e:
 
 
 def xcparser(pipe, ns, slottimes):
-    
-
+    if not options.start_time:
+        options.start_time = time.time()
+  
     if not options.savefile:
-        # default save name is destination + YYMMDD_HHMM
-        options.savefile = options.DST + time.strftime("_%Y%m%d_%H%M", time.localtime())
-
+        # default save name is destination + YYMMDD + HHMM
+        options.savefile = options.DST + time.strftime("_%Y%m%d_%H%M", 
+                                                       time.localtime(options.start_time)) 
+    options.savefile += options.tag 
+    options.savefile += '_xc'
 
     timetime = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
     hphelper.set_affinity('parser') 
@@ -332,8 +331,6 @@ def xcparser(pipe, ns, slottimes):
         time.sleep(0.1)
 
     DEBUG('starting parser: '+__name__)
-
-
     xc.stats.run_start = timetime()
 
     xcplotter_thread.start()
@@ -342,17 +339,16 @@ def xcparser(pipe, ns, slottimes):
 
     data = None
     try:
-        while 1:                                              # faster than while True
-            data = pipe.recv()
+        while 1:                              # faster than while True
+            data = pipe.recv()                # get (seq, slot, rtt) from capture process
             (seq, slot, rtt) = data
-            rcv_buf.append((seq, slot, rtt))              # receive (seq, snd_time, rtt) from rcvloop process
+            rcv_buf.append((seq, slot, rtt))   
     except (KeyboardInterrupt):
         rcv_buf.append((-2,-2,-2))
         print '\n\nparse loop interrupted...'
     except (ValueError) as e:
         rcv_buf.append((-2,-2,-2))
-        print '\a', # received all packets
-        #sys.stdout.flush()
+        print '\a', # all packets received
 
     try:
         xc.join()
@@ -361,7 +357,6 @@ def xcparser(pipe, ns, slottimes):
         pass
     
 
-    ######################
     # display statistics
     xc.stats.run_end = timetime()
     xc.stats.rx_slots = xc.slot_count
@@ -373,11 +368,11 @@ def xcparser(pipe, ns, slottimes):
     print "\tH=%.2f (slope %.4f y0=%.4f)" % ((d+2)/2, d, y0 )
     print 
 
-    options.savefile += options.tag +'_xc'
-    print "saving covariance to " + options.savefile + ".dat ..."
 
+    fname = options.savefile + '.dat'
+    print "saving covariance to " + fname + " ..."
     try:
-        fs = open(options.savefile + '.dat', mode='w')
+        fs = open(fname, mode='w')
         fs.write('% ' + options.IPDST + ' ' + str(options))
         
         for j in xc.xcov():
@@ -385,8 +380,6 @@ def xcparser(pipe, ns, slottimes):
         fs.close()
     except KeyboardInterrupt:
             print 'canceled saving.'
-
-
 
 
 
@@ -405,7 +398,7 @@ def xcplotter(xc, gp=None):
 
         # use these to plot axis ranges
         min_x, max_x = (1,options.L)
-        min_y, max_y = (1e-6,1e-2)
+        min_y, max_y = (1e-6,1e-0)
 
         # set plot options
         gp.setup(xlabel='log_10(lag) [s]', 
@@ -457,7 +450,6 @@ def xcplotter(xc, gp=None):
         return
         # save plot to EPS
         gp.set_term_eps(options.savefile)
-
 
 
         # we must replot everything to save it to the file

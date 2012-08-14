@@ -10,7 +10,6 @@ from itertools import islice
 
 try:
     import numpy as np
-    from numpy import mean, arange, sum
     import types                          # for cython binding
 except ImportError:
     print __name__ + ": please make sure the following packages are installed:"
@@ -234,7 +233,7 @@ class AggVarEstimator(threading.Thread):
             self.win = np_append(self.win[1:], x)
             self.slot_count += 1
 
-            [var.step(mean(self.win[-m:])) for m,var in self.avars.iteritems() if not self.slot_count % m]
+            [var.step(np.mean(self.win[-m:])) for m,var in self.avars.iteritems() if not self.slot_count % m]
 
 
             
@@ -264,34 +263,34 @@ except (NameError, AttributeError) as e:
 
 
 def avparser(pipe, ns, ST=None):
-
-    options.tag += '_av'
+    if not options.start_time:
+        options.start_time = time.time()
+  
     if not options.savefile:
         # default save name is destination + YYMMDD + HHMM
-        options.savefile = options.DST + time.strftime("_%Y%m%d_%H%M", time.localtime()) + options.tag
+        options.savefile = options.DST + time.strftime("_%Y%m%d_%H%M", 
+                                                       time.localtime(options.start_time)) 
+    options.savefile += options.tag 
+    options.savefile += '_av'
 
 
     rcv_buf = deque() # TODO
+
+    # init estimator thread
     av = AggVarEstimator(rcv_buf, ST)
     av.daemon = True
 
-
-
-
-    # start xcplotter Thread
+    # init plotter thread
     avplotter_thread = threading.Thread(target=avplotter, args=(av,))
     avplotter_thread.daemon = True
 
-
-
-    #block until sender + receiver say they are ready                                                    
+    #block until sender + receiver say they are ready
     while not all([ns.RCV_READY,ns.SND_READY]):
         time.sleep(0.1)
 
-
     av.stats.run_start = time.time()
-    options.start_time = time.time()
 
+    # start threads
     avplotter_thread.start()
     av.start()
 
@@ -318,16 +317,16 @@ def avparser(pipe, ns, ST=None):
         pass
 
     av.stats.run_end = time.time()
+    av.stats.pprint()
 
     print
     print "\tH=%.2f" % (av.hurst(),)
     print 
-    av.stats.pprint()
+
 
     
     
     fname = options.savefile + '.dat'
-
     print "saving variances to " + fname + " ..."
     try:
             fs = open(fname, mode='w')
