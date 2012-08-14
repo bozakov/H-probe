@@ -384,17 +384,16 @@ def xcparser(pipe, ns, slottimes):
 
 
 def xcplotter(xc, gp=None):
-
-        if options.no_plot:
-            return
+        if options.no_plot: return
 
         gp = hplotting.gp_plotter()
-        gp_cmd = gp.cmd
-
-        fps = 1.0/options.fps
+        if not gp.gp: return        
 
         getdata_str = xc.getdata_str
+        gp_cmd = gp.cmd
         xc_conf_int = xc.conf_int
+
+        fps = 1.0/options.fps
 
         # use these to plot axis ranges
         min_x, max_x = (1,options.L)
@@ -413,7 +412,7 @@ def xcplotter(xc, gp=None):
         i=0
         while xc.is_alive():
             i += 1
-            if i%10==0:                              # calculate and plot confidence levels + hurst fit every 10 frames
+            if i%10==0:             # plot confidence levels every 10 frames
                 ci_level = xc_conf_int()
                 gp.arrow(min_x, ci_level, max_x, ci_level, '3')
 
