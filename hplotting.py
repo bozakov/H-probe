@@ -70,8 +70,7 @@ class gp_plotter(object):
 
 
     def setup(self, **args):
-        if not self.gp:
-            return
+        if not self.gp: return
  
         if 'title' in args:
             self.cmd("set title \"%s\"" % (args['title'],))
@@ -100,10 +99,9 @@ class gp_plotter(object):
         self.cmd('show label ' + str(tag))
 
 
-    def cmd(self,gp_command, flush=False):
+    def cmd(self, gp_command, flush=False):
         self.gp.stdin.write(gp_command + '\n')
-        if flush:
-            self.gp.stdin.flush()
+        if flush: self.gp.stdin.flush()
 
     def flush(self):
         self.gp.stdin.flush()

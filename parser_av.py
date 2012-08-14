@@ -343,11 +343,10 @@ def avparser(pipe, ns, ST=None):
 
 
 def avplotter(av):
-
-        if not options.plot:
-            return
+        if not options.plot: return
 
         gp = hplotting.gp_plotter()
+        if not gp.gp: return        
 
         getdata_str =  av.getdata_str
         gp_cmd = gp.cmd
