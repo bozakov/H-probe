@@ -39,6 +39,7 @@ class gp_plotter(object):
 
 
         self.cmd('set term x11', flush=True)
+
         #self.gp.stdout.readline()
         #if self.gp.stdout.readline()[:31] == 'gnuplot: unable to open display':
         #    print 'could not open X11 display'
@@ -51,7 +52,7 @@ class gp_plotter(object):
             self.cmd('set term dumb')           # ASCII output
 
         opt_string = "r=%.3f, l=%d, delta=%.3e" % (options.rate, options.plen, options.delta)
-        self.cmd('set title "%s %s ( %s )"' % (options.DST, time.ctime(), opt_string ))
+        self.cmd('set title "%s %s ( %s )"' % (options.DST, time.ctime(options.start_time), opt_string ))
         self.cmd("set datafile missing 'nan'")
         if self.PLOT_LOG:
             self.cmd('set log xy')

@@ -51,8 +51,34 @@ class fixed_buf(object):
 ########################################################################
 # parser_av.py
 
-cimport cython
-@cython.boundscheck(False) # turn off bounds-checking for entire function
+cdef class var_est(object):
+    cdef int m 
+    cdef int n 
+    cdef double mean 
+    cdef double M2
+
+    def __init__(self,int m):
+        self.m = m
+        self.n = 0
+        self.mean = 0.0
+        self.M2 = 0
+
+
+    def step(self, double x):
+        self.n += 1
+        cdef double delta = x - self.mean
+        self.mean += delta/self.n
+        self.M2 += delta*(x - self.mean)
+
+
+    def var(self):
+        # return NaN if less than 100 samples exist
+        if self.n<100: return np.nan
+        return self.M2/(self.n - 1)
+
+
+#cimport cython
+#@cython.boundscheck(False) # turn off bounds-checking for entire function
 def av_append_f(self, int probe, int zcount=0):
         ''' Append the latest received probe to a sliding
         window. Update the aggregate variances for each variance

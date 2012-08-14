@@ -384,78 +384,79 @@ def xcparser(pipe, ns, slottimes):
 
 
 def xcplotter(xc, gp=None):
-        if options.no_plot: return
+    """Initialize gnuplot and periodically update the graph."""
+    if options.no_plot: return
 
-        gp = hplotting.gp_plotter()
-        if not gp.gp: return        
+    gp = hplotting.gp_plotter()
+    if not gp.gp: return        
 
-        getdata_str = xc.getdata_str
-        gp_cmd = gp.cmd
-        xc_conf_int = xc.conf_int
+    getdata_str = xc.getdata_str
+    gp_cmd = gp.cmd
+    xc_conf_int = xc.conf_int
 
-        fps = 1.0/options.fps
+    fps = 1.0/options.fps
 
-        # use these to plot axis ranges
-        min_x, max_x = (1,options.L)
-        min_y, max_y = (1e-6,1e-0)
+    # use these to plot axis ranges
+    min_x, max_x = (1,options.L)
+    min_y, max_y = (1e-6,1e-0)
 
-        # set plot options
-        gp.setup(xlabel='log_10(lag) [s]', 
-                 ylabel='covariance', 
-                 xrange=(min_x, max_x), 
-                 yrange=(min_y,max_y),
-                 xtics=[(i*options.delta,i) for i in 10**arange(log10(options.L)+1)],
-                 )
+    # set plot options
+    gp.setup(xlabel='log_10(lag) [s]', 
+             ylabel='covariance', 
+             xrange=(min_x, max_x), 
+             yrange=(min_y,max_y),
+             xtics=[(i*options.delta,i) for i in 10**arange(log10(options.L)+1)],
+             )
 
-        ydata = ''
+    ydata = ''
 
-        i=0
-        while xc.is_alive():
-            i += 1
-            if i%10==0:             # plot confidence levels every 10 frames
-                ci_level = xc_conf_int()
-                gp.arrow(min_x, ci_level, max_x, ci_level, '3')
+    i=0
+    while xc.is_alive():
+        i += 1
+        if i%10==0:             # plot confidence levels every 10 frames
+            ci_level = xc_conf_int()
+            gp.arrow(min_x, ci_level, max_x, ci_level, '3')
 
-            # TODO does not terminate cleanly if X11 display cannot be opened
-            time.sleep(fps)
-
-            ydata = getdata_str()
-            if ydata:
-                gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata, flush=True)
-
-
-        # calculate confidence interval
-        ci_level = xc_conf_int()
-        # plot confidence interval level
-        gp.arrow(min_x, ci_level, max_x, ci_level, '3')
-
-        # perform fitting for values larger than ci_level
-        (d,y0) = xc.fit() # TODO thresh=ci_level
-        H = xc.hurst(d)
+        # TODO does not terminate cleanly if X11 display cannot be opened
+        time.sleep(fps)
 
         ydata = getdata_str()
-        if H:
-            # plot H linear fit and label it
-            gp.label('H=%.2f' % H, 2, 1.2*(y0))      
-            gp.arrow(1, y0, xc.L, y0*xc.L**d, '4')
-
-            #xh = 10**((log10(ci_level)-log10(y0))/d)
-            #gp.arrow(1, y0, xh, y0*xh**d, '4')
+        if ydata:
+            gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata, flush=True)
 
 
-            if ydata:
-                gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata)
+    # calculate confidence interval
+    ci_level = xc_conf_int()
+    # plot confidence interval level
+    gp.arrow(min_x, ci_level, max_x, ci_level, '3')
 
-        return
-        # save plot to EPS
-        gp.set_term_eps(options.savefile)
+    # perform fitting for values larger than ci_level
+    (d,y0) = xc.fit() # TODO thresh=ci_level
+    H = xc.hurst(d)
 
-
-        # we must replot everything to save it to the file
+    ydata = getdata_str()
+    if H:
         # plot H linear fit and label it
         gp.label('H=%.2f' % H, 2, 1.2*(y0))      
         gp.arrow(1, y0, xc.L, y0*xc.L**d, '4')
+
+        #xh = 10**((log10(ci_level)-log10(y0))/d)
+        #gp.arrow(1, y0, xh, y0*xh**d, '4')
+
+
         if ydata:
             gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata)
 
-        gp.quit()
+
+    # save plot to EPS
+    gp.set_term_eps(options.savefile)
+
+
+    # we must replot everything to save it to the file
+    # plot H linear fit and label it
+    gp.label('H=%.2f' % H, 2, 1.2*(y0))      
+    gp.arrow(1, y0, xc.L, y0*xc.L**d, '4')
+    if ydata:
+        gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata)
+
+    gp.quit()

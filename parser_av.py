@@ -32,6 +32,7 @@ import hplotting
 np_append = np.append
 options = hphelper.options
 DEBUG = hphelper.DEBUG
+ERROR = hphelper.err
 
 class var_est(object):
 
@@ -42,25 +43,25 @@ class var_est(object):
         self.M2 = 0
 
     def step(self,x):
+        """Take a single (avaraged) sample and update the variance"""
         self.n += 1
         delta = x - self.mean
         self.mean += delta/self.n
         self.M2 += delta*(x - self.mean)
 
-    def zero_step(self,x,zcount=0):
-        self.n += 1
-        delta = self.mean
-        self.mean += delta/self.n
-        self.M2 += delta*self.mean
-
     def var(self):
-        # return NaN if less than 100 values were used for calculating
-        # the variance
-        if self.n<100:
-            return np.nan
+        """Returns the variance estimate for the current aggregation
+        level. Returns NaN if less than 100 samples were available for
+        calculating the variance"""
+        if self.n<100: return np.nan
         return self.M2/(self.n - 1)
 
 
+try:
+    var_est = hpfast.var_est
+    DEBUG('using hpfast.var_est', __name__)
+except (NameError, AttributeError) as e:
+    pass
 
 
 
@@ -255,7 +256,7 @@ try:
     AggVarEstimator.get_avars_corrected = types.MethodType(hpfast.get_avars_corrected_f, None, AggVarEstimator) 
     min = hpfast.min
     max = hpfast.max 
-    DEBUG('cython methods bounded')
+    DEBUG('cython methods bounded', __name__)
 
 except (NameError, AttributeError) as e:
     pass
@@ -335,6 +336,9 @@ def avparser(pipe, ns, ST=None):
             for m,v in zip(av.get_avars_corrected(), av.M):
                 fs.write("%e\t%d\n" % (m,v))
             fs.close()
+    except IOError:
+            ERROR('could not write to file')
+            return
     except KeyboardInterrupt:
             print 'canceled saving.'
 

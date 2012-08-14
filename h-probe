@@ -128,7 +128,7 @@ else:
     except IndexError:
         hphelper.err('please specify a valid destination host!')
 
-options.start_time = 0.0
+options.start_time = None
 
 try:
     # save covariance data and plot to this file
