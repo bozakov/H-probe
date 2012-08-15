@@ -129,10 +129,17 @@ class AggVarEstimator(threading.Thread):
 
             stats.update(seq, rtt, slot)
 
-            # discard probe if it was received out of order
-            if seq<=max_seq:
-                stats.rx_out_of_order += 1
-                continue
+            if seq!=last_seq+1:
+                # unexpected sequence number 
+                seq_delta = seq-last_seq-1
+                if seq_delta<0:
+                    # discard probe if it was received out of order
+                    # seq_delta == -1 --> duplicate packet
+                    stats.rx_out_of_order += 1
+                    continue
+
+                # all intermediate packets were missing
+                stats.rcv_err += seq_delta
 
             ## packet was not sent correctly!
             #if slot == -1.0:
