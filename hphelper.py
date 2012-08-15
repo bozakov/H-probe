@@ -10,7 +10,7 @@ import os
 options = None
 
 class txt_color:
-    HEADER = '\033[95m'
+    INFO = '\033[95m'
     BLUE = '\033[94m'
     GREEN = '\033[92m'
     DEBUG = '\033[31m'
@@ -76,28 +76,30 @@ class stats_stats:
         term_width = 80
         print '-'*term_width
         if self.snd_err:
-            print "packets dropped at sender:\t%d" % (self.snd_err,)
+            INFO("packets dropped (sender)", self.snd_err)
         if self.rcv_err:
-            print "packets dropped at receiver:\t%d" % (self.rcv_err,)
-        print "max sqeuence nr.:\t\t%d" % (self.seq)
+            INFO("packets dropped", self.rcv_err)
+        INFO("max sqeuence nr." , self.seq)
         if self.rx_total:
-            print "total probes received:\t\t%d" %(self.rx_total)
-            print "RTT mean:        \t\t%.6f" % (self.mean_rtt())
+            INFO("total probes received", self.rx_total)
+            INFO("RTT mean", "%.6f" % (self.mean_rtt()))
         if self.rx_slots:
-            print "max. slot received:\t\t%d" % (self.rx_slots)
-            print "sample probing intensity:\t%.6f" % (self.mean_a())
+            INFO("max. slot received", self.rx_slots)
+            INFO("sample probing intensity", "%.6f" % (self.mean_a()))
         if self.min_rtt!=np.inf:
-            print "RTT minimum:         \t\t%.6f" % (self.min_rtt)
+            INFO("RTT minimum", "%.6f" % (self.min_rtt))
         if self.max_rtt!=-np.inf:
-            print "RTT maximum:         \t\t%.6f" % (self.max_rtt)
+            INFO("RTT maximum", "%.6f" % (self.max_rtt))
+        if self.rx_out_of_order:
+            INFO("out of order packets", self.rx_out_of_order)
          
         # print any extra statistics
         for k,v in self.extra_stats.iteritems():
-            print str(v[0]) + ":\t\t\t" + str(v[1])
+            INFO(str(v[0]), str(v[1]))
 
         rt = self.runtime()
         if rt:
-            print "runtime:\t\t\t%.2f s" % rt
+            INFO("runtime", "%.2f s" % (rt))
         print '-'*term_width
 
 
@@ -193,7 +195,7 @@ def set_affinity(ppid):
         DEBUG('could not set CPU affinity')
 
     
-    DEBUG('CPU=%d:\t process [%s] (PID=%d)' % (cpu, ppid, pid))
+    DEBUG('CPU=%d:\t process [%s] (PID=%d)' % (int(np.log2(cpu)), ppid, pid))
 
 
 
@@ -226,8 +228,8 @@ def load_process_affinities():
     if any(CPUID):
         info = ''
         for p,c in CPUID.iteritems():
-            info += str(p) + ':' + str(int(np.log2(c))) + ' '
-        DEBUG('loaded   ' + info)
+            info += str(p) + ':' + str(c) + ' '
+        DEBUG('loaded mapping  ' + info)
         return CPUID
     else:
         return defaults
@@ -238,9 +240,13 @@ def err(errortext, module_name='', errcode=1):
     print txt_color.ERROR + 'ERROR' + txt_color.END + ':\t%s' % (errortext)
     raise SystemExit(errcode)
 
+ERROR = err
 
 def DEBUG(infotext, module_name='', level=1):
     if module_name:
         module_name = ' [' + module_name + ']'
     if options.DEBUG:
         print txt_color.DEBUG + 'DEBUG' + txt_color.END + '{0:<27}{1}'.format(module_name+':', infotext)
+
+def INFO(infotext, value=''):
+    print '{0:<35}{1}'.format(txt_color.INFO + infotext + txt_color.END + ':', str(value))

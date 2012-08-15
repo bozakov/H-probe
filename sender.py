@@ -147,7 +147,7 @@ if not options.loaddump:
     pkts = np.empty(options.pnum, dtype=np.dtype((str, ARRAY_PLEN)))
 
     try:
-        p = Ether()/IP(dst=IPDST)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
+        p = Ether()/IP(dst=IPDST, ttl=64)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
         try:
             # generate a packet string which we can modify
             str_p = str(p)

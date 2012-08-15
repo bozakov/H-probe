@@ -34,18 +34,19 @@ def rcvloop(data_pipe, ns, geotimes=None):
         pnum = options.pnum
 
     hphelper.set_affinity('rcvloop')
-
+    ttl=None
 
     struct_unpack = struct.unpack
     def pcap_cb(time, pkt):
         (icmp_type,) = struct_unpack('!B',pkt[34:34+1])
-        (seq,slot) = struct_unpack('!LL',pkt[50:58])           # ICMP (offset 34) + 16:50+4+4
-
+        (seq,slot) = struct_unpack('!LL',pkt[50:58])          # ICMP (offset 34) + 16:50+4+4
         if icmp_type==8:                                    # ICMP echo request
             s_times[seq] = time                             # store send time
         elif icmp_type==0:                                  # ICMP echo reply
             snd_time = s_times[seq]                         # use captured send time to calculate RTT 
             data_pipe.send((seq, slot, time-snd_time))      # send to parser process 
+            #(ttl,) = struct_unpack('!B',pkt[22:22+1])        # 14 Ethernet 14 + 8 IP  
+
     DEBUG('starting receiver ', __name__)
 
     # init empty numpy arrays to store snd/rcv times
@@ -60,6 +61,7 @@ def rcvloop(data_pipe, ns, geotimes=None):
 
         exit(-1)
         raise SystemExit(-1)
+
 
     # notify sender that we are ready to capture
     ns.RCV_READY = True
@@ -77,7 +79,7 @@ def rcvloop(data_pipe, ns, geotimes=None):
     # timeout_ms was reached, notify parser that we are done
     data_pipe.send('RCV_DONE')
     #q.close()
-    DEBUG('done', __name__)
+    DEBUG('DONE', __name__)
 
 
 ###############################################################################
@@ -132,7 +134,7 @@ class dumpdata(object):
         self.rtts = np.zeros(options.pnum)  
         self.dump_options = None
 
-    def stats(self):
+    def pprint(self):
         print 'loaded %d samples (dump mean %.6f)\n' % (np.sum(self.rcv_order!=-1), np.mean(self.rtts))
 
 
@@ -165,6 +167,7 @@ def dump_loader():
         options.plen = dump.dump_options['plen']
         options.delta = dump.dump_options['delta']
         options.start_time = dump.dump_options['start_time']
+        options.tag = dump.dump_options['tag'] + options.tag
     except SyntaxError as se:
         print 'could not parse options'
 
@@ -189,7 +192,7 @@ def dump_loader():
         pass # canceled reading file
 
     fs.close()
-    dump.stats()
+    dump.pprint()
 
     if options.min_rtt==-1:
         options.min_rtt = np.mean(dump.rtts)
@@ -199,5 +202,5 @@ def dump_loader():
 
 
 if options.loaddump:
-    options.tag += '_offline'
     dump = dump_loader()
+    options.tag += '_offline'

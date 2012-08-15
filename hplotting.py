@@ -88,8 +88,8 @@ class gp_plotter(object):
             self.cmd('set xtics (%s)' % tstr)
 
 
-    def arrow(self,x1,y1,x2,y2, tag=''):
-        self.cmd('set arrow '+ str(tag) +' from %f,%f to %f,%f nohead ls 7' % (x1,y1,x2,y2))
+    def arrow(self,x1,y1,x2,y2, tag='', ls=7):
+        self.cmd('set arrow '+ str(tag) +' from %f,%f to %f,%f nohead ls %d' % (x1,y1,x2,y2,ls))
 #        self.cmd('set arrow '+ str(tag) +' from %f,%f to %f,%f nohead lt 7 linecolor rgb "blue"' % (x1,y1,x2,y2))
         self.cmd('show arrow ' + str(tag))
 

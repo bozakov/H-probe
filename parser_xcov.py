@@ -236,7 +236,7 @@ class XcovEstimator(threading.Thread):
 
     def run(self):
         stats = self.stats
-        max_seq = -1                                  # store maximum sequence number received until now
+        last_seq = -1                                  # store maximum sequence number received until now
         last_slot = 0
 
         if options.min_rtt == -1.0:
@@ -255,16 +255,23 @@ class XcovEstimator(threading.Thread):
 
             stats.update(seq, rtt, slot)
 
-            # discard probe if it was received out of order
-            if seq<=max_seq:
-                stats.rx_out_of_order += 1
-                continue
+            if seq!=last_seq+1:
+                # unexpected sequence number 
+                seq_delta = seq-last_seq-1
+                if seq_delta<0:
+                    # discard probe if it was received out of order
+                    # seq_delta == -1 --> duplicate packet
+                    stats.rx_out_of_order += 1
+                    continue
+
+                # all intermediate packets were missing
+                stats.rcv_err += seq_delta
 
             ## each dropped probe indicates a full queue append, a
             ## 1 to the covariance vector
-            #while seq!=max_seq+1:
-            #    max_seq += 1
-            #    next_slot = slots[max_seq]
+            #while seq!=last_seq+1:
+            #    last_seq += 1
+            #    next_slot = slots[last_seq]
             #    if next_slot==-1:                         # slottimes vector might be incomplete
             #        continue
             #    slot_delta = next_slot - last_slot
@@ -273,7 +280,7 @@ class XcovEstimator(threading.Thread):
             #    self.append(1, slot_delta)
 
 
-            max_seq = seq
+            last_seq = seq
 
             slot_delta = slot - last_slot
             last_slot = slot
@@ -415,7 +422,7 @@ def xcplotter(xc, gp=None):
         i += 1
         if i%10==0:             # plot confidence levels every 10 frames
             ci_level = xc_conf_int()
-            gp.arrow(min_x, ci_level, max_x, ci_level, '3')
+            gp.arrow(min_x, ci_level, max_x, ci_level, '3', 8)
 
         # TODO does not terminate cleanly if X11 display cannot be opened
         time.sleep(fps)
@@ -428,7 +435,7 @@ def xcplotter(xc, gp=None):
     # calculate confidence interval
     ci_level = xc_conf_int()
     # plot confidence interval level
-    gp.arrow(min_x, ci_level, max_x, ci_level, '3')
+    gp.arrow(min_x, ci_level, max_x, ci_level, '3', 8)
 
     # perform fitting for values larger than ci_level
     (d,y0) = xc.fit() # TODO thresh=ci_level
@@ -442,7 +449,6 @@ def xcplotter(xc, gp=None):
 
         #xh = 10**((log10(ci_level)-log10(y0))/d)
         #gp.arrow(1, y0, xh, y0*xh**d, '4')
-
 
         if ydata:
             gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata)

@@ -57,7 +57,7 @@ oparser.add_option("-r", "--rate", dest="rate", default=0.1, type="float",
                   help="mean probing intensity between 0 and 1 (default: %default)")
 oparser.add_option("-s", "--psize", dest="plen", default=64, type="int", 
                   help="total probe packet size in bytes (default: %default)")
-oparser.add_option("-L", "--lag", dest="L", default=10.0, type="float", 
+oparser.add_option("-L", "--lag", dest="L", default=100.0, type="float", 
                   help="maximum lag in seconds (default: %default s)")
 oparser.add_option("-M", "--agg-level", dest="M", nargs=2, default=[0.1,100.0], type="float", 
                   help="min/max aggregation range in seconds for aggregate variance method (default: %default s)")
@@ -86,8 +86,7 @@ oparser.add_option("--verbose", action="store_true", dest="DEBUG", default=False
 
 (hphelper.options, args) = oparser.parse_args()
 options = hphelper.options 
-DEBUG = hphelper.DEBUG
-ERROR = hphelper.err
+from hphelper import DEBUG, INFO, ERROR
 
 if not options.in_slots:
     options.L = int(1.0*options.L/options.delta)
@@ -126,7 +125,7 @@ else:
     try:
         DST = args[0]
     except IndexError:
-        hphelper.err('please specify a valid destination host!')
+        ERROR('please specify a valid destination host!')
 
 options.start_time = None
 
@@ -138,9 +137,6 @@ except IndexError:
 
 if options.tag:
     options.tag = '_' + options.tag
-
-if options.loaddump:
-    options.tag += '_from_dump'
 
 IPDST = socket.gethostbyname(DST)
 options.IPDST = IPDST
@@ -157,13 +153,12 @@ except:
 
 
 #################################################################################
-print "source IP:\t %s (%s, %s)" % (IPSRC, options.eth, get_if_hwaddr(eth))
-print "destination IP:\t %s" % IPDST
-print "probe size:\t %d byte" % (options.plen)
+INFO("source IP", "%s (%s, %s)" % (IPSRC, options.eth, get_if_hwaddr(eth)))
+INFO("destination IP", IPDST)
+INFO("probe size:", "%d byte" % (options.plen))
 if options.min_rtt>=0:
-    print "minimum RTT:\t %f s" % (options.min_rtt)
-print 'probing rate:\t %.2f Mbps (%.2f),' % (options.rate*options.C/1e6, options.rate),
-print 'delta: %.3e s, %d pps' % (options.delta, options.rate/options.delta)
+    INFO("minimum RTT", " %f s" % (options.min_rtt))
+INFO("probing rate", '%.2f Mbps (%.2f), ' % (options.rate*options.C/1e6, options.rate) + 'delta: %.3e s, %d pps' % (options.delta, options.rate/options.delta))
 print
 
 
