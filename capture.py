@@ -1,21 +1,27 @@
 import os
-import hphelper
 import struct
 import time
 
 try:
     import pcap               # python-pypcap
-    #from numpy import *
     import numpy as np
-
 except ImportError:
     print "!! please make sure the following packages are installed:"
     print "\tpython-pypcap"    
     print "\tpython-numpy"
     exit(1)
 
+try:
+    import gzip
+except ImportError:
+    pass
+
+import hphelper
+
+
 options = hphelper.options
 DEBUG = hphelper.DEBUG
+ERROR = hphelper.err
 
 ################################################################################
 def rcvloop(data_pipe, ns, geotimes=None):
@@ -136,22 +142,29 @@ def dump_loader():
     dump = dumpdata(options)
 
     try:
-        fs = open(options.loaddump, mode='r')
+        if options.loaddump[-2:].lower()=='gz':
+            fs = gzip.open(options.loaddump, mode='r')
+        else:
+            fs = open(options.loaddump, mode='r')
         # first line should be a comment containing options
         l = fs.readline() 
         (c, STR, opt) = str.split(l,' ',2)
+    except IOError as e:
+        print 'error reading dump file'
+        print e
+        raise SystemExit(1)
+    except Exception as e:
+        print 'error parsing dump file'
+        raise SystemExit(1)
+
+    try:
         dump.dump_options = eval(opt)
-        
         # set some options loaded from the dump file
         options.IPDST = dump.dump_options['IPDST']
         options.DST = dump.dump_options['DST']
         options.plen = dump.dump_options['plen']
         options.delta = dump.dump_options['delta']
         options.start_time = dump.dump_options['start_time']
-    except Exception as e:
-        print 'error loading dump file'
-        print e
-        raise SystemExit(1)
     except SyntaxError as se:
         print 'could not parse options'
 
@@ -186,4 +199,5 @@ def dump_loader():
 
 
 if options.loaddump:
+    options.tag += '_offline'
     dump = dump_loader()
