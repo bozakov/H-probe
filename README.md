@@ -8,8 +8,7 @@ Overview
 H-probe is an online active probing tool for estimating traffic correlations from end-to-end measurements. H-probe does not rely on a receiver as it uses ICMP echo packets. It uses libpcap to capture returning ICMP echo replies. From the timing information H-probe is able to estimate the correlation (covariance) of the cross traffic sharing the end-to-end path with the probing traffic. For Internet aggregate traffic it is known [Leland et al. '94] that it is long range dependent (LRD) with Hurst parameter H. The Hurst parameter can be estimated from the covariance slope that is given by 2H-2. H-probe also implements the aggregate variance method known from [Taqqu et al. '95], which is more robust than the covariance, for estimating H. 
 
 H-probe uses sampling methodology that is described in
-"H-Probe: Estimating Traffic Correlations from Sampling and Active Network Probing", by A. Rizk, Z. Bozakov and M. Fidler. The paper is available at: XXX
-
+"H-Probe: Estimating Traffic Correlations from Sampling and Active Network Probing", by A. Rizk, Z. Bozakov and M. Fidler. The paper is available at [arXiv](http://arxiv.org/abs/1208.2870).
 
 H-Probe injects ICMP echo request probes from the sender to the target and captures the corresponding round trip times (RTT) using libpcap. Using the RTTs H-probe estimates the traffic correlations on the end-to-end path. Details of the algorithm are given the paper mentioned above.
 
@@ -101,11 +100,12 @@ Output
     
         [host]_[date]_[time]_<tag>_[method].eps
         
-    	* [host] is the target host name
-    * [date] is the current date (YYYYMMDD)
-    * [time] is the measurement completion time (HHMM)
-    * <tag>  is an optional user defined tag (`--tag` option)
-    * [method] is the estimation method: av for aggregate variance, xc for covariance plot
+ * [host] is the target host name
+ * [date] is the current date (YYYYMMDD)
+ * [time] is the measurement completion time (HHMM)
+ * <tag>  is an optional user defined tag (`--tag` option)
+ * [method] is the estimation method: av for aggregate variance, xc for covariance plot
+
   
     Additionally the estimate raw data is saved as a .dat file which can be imported and analyzed in other tools. The file name format is identical to the EPS file but has a .dat extension. The file contains a new line for each received probe with the format `YY [XX]` where:
     
@@ -121,12 +121,12 @@ Output
     
          [host]_[date]_[tag]_[time].dump
     
-    The dumpfile contains a single line for each measured RTT using a three column, white space delimited format `AA BB CCCCC`
+    The dumpfile contains a single line for each measured RTT using a
+    three column, white space delimited format `AA BB CCCCC`
 
-
-     * AA     is the integer probe sequence number
-     * BB     is the integer slot number of the probe (each slot is Delta wide)
-     * CCCCC  is the measured RTT in seconds
+  * AA     is the integer probe sequence number
+  * BB     is the integer slot number of the probe (each slot is Delta wide)
+  * CCCCC  is the measured RTT in seconds
 
 
 Contact
@@ -136,7 +136,7 @@ Contact
 
 <amr.rizk@ikt.uni-hannover.de>
 
-You can find the project page here: www.ikt.uni-hannover.de/h-probe
+You can find the project page [here](http://www.ikt.uni-hannover.de/h-probe).
 
 License
 -------
