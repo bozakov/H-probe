@@ -123,6 +123,7 @@ Output
     
     The dumpfile contains a single line for each measured RTT using a three column, white space delimited format `AA BB CCCCC`
 
+
     * AA     is the integer probe sequence number
     * BB     is the integer slot number of the probe (each slot is Delta wide)
     * CCCCC  is the measured RTT in seconds
@@ -135,7 +136,7 @@ Contact
 
 <amr.rizk@ikt.uni-hannover.de>
 
-You can find the project page [here](www.ikt.uni-hannover.de/h-probe)
+You can find the project page here: www.ikt.uni-hannover.de/h-probe
 
 License
 -------
