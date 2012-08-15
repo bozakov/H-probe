@@ -101,7 +101,7 @@ Output
     
         [host]_[date]_[time]_<tag>_[method].eps
         
-    * [host] is the target host name
+    	* [host] is the target host name
     * [date] is the current date (YYYYMMDD)
     * [time] is the measurement completion time (HHMM)
     * <tag>  is an optional user defined tag (`--tag` option)
@@ -115,7 +115,7 @@ Output
 
 4.  H-probe can save the measurement results into a dump file for subsequent analysis using the '--dump' option. The default dump file is saved as:
 
-        [savefile]_<tag>_[method].dump
+         [savefile]_<tag>_[method].dump
     
     or, if no savefile was specified:
     
@@ -124,9 +124,9 @@ Output
     The dumpfile contains a single line for each measured RTT using a three column, white space delimited format `AA BB CCCCC`
 
 
-    * AA     is the integer probe sequence number
-    * BB     is the integer slot number of the probe (each slot is Delta wide)
-    * CCCCC  is the measured RTT in seconds
+     * AA     is the integer probe sequence number
+     * BB     is the integer slot number of the probe (each slot is Delta wide)
+     * CCCCC  is the measured RTT in seconds
 
 
 Contact
