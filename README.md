@@ -69,7 +69,7 @@ The command line options are given below
                             total probe packet size in bytes (default: 64)
       -L L, --lag=L         maximum lag in seconds (default: 10.0 s)
       -M M, --agg-level=M   min/max aggregation range in seconds for aggregate
-                            variance method (default: [0.1, 100.0] s)      
+                            variance method (default: [0.1, 100.0] s)
       --in-slots            maximum lag and the aggregation levels are given in
                             slots rather than absolute time
       -t MIN_RTT, --min-rtt=MIN_RTT
@@ -88,11 +88,11 @@ The command line options are given below
 Output
 ------
 
-1.  Covariance method (`--aggvar` option): calculates and plots the covariance versus the time lag in seconds on a log-log scale. For LRD traffic the covariance decays as \tau^{2H-2}. This results into a slope on a log-log scale as 2H-2.
+1.  Covariance method (`--xcov` option): calculates and plots the covariance versus the time lag in seconds on a log-log scale. For LRD traffic the covariance decays as \tau^{2H-2}. This results into a slope on a log-log scale as 2H-2.
 
-2.  Aggregate variance method (`--xcov` option): generates a plot depicting the aggregate variance versus the aggregation level M. On a log-log scale the aggregate variance decays with M as a straight line with a slope of 2H-2. This is the default estimation method.
+2.  Aggregate variance method (`--aggvar` option): generates a plot depicting the aggregate variance versus the aggregation level M. On a log-log scale the aggregate variance decays with M as a straight line with a slope of 2H-2. This is the default estimation method.
 
-3.  After a predefined number of probes has been collected (-n option) the measurement terminates and the current plot (either covariance or aggregate variance) is saved under the following name:
+3.  After a predefined number of probes has been collected (`-n` option) the measurement terminates and the current plot (either covariance or aggregate variance) is saved under the following name:
 
         [savefile]_<tag>_[method].eps
 
@@ -100,7 +100,6 @@ Output
     or, if no savefile was specified:
     
         [host]_[date]_[time]_<tag>_[method].eps
-
         
     * [host] is the target host name
     * [date] is the current date (YYYYMMDD)
@@ -123,7 +122,7 @@ Output
          [host]_[date]_[tag]_[time].dump
     
     The dumpfile contains a single line for each measured RTT using a three column, white space delimited format `AA BB CCCCC`
-    
+
     * AA     is the integer probe sequence number
     * BB     is the integer slot number of the probe (each slot is Delta wide)
     * CCCCC  is the measured RTT in seconds
