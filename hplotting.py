@@ -38,7 +38,8 @@ class gp_plotter(object):
             return self.gp
 
 
-        self.cmd('set term x11', flush=True)
+        termopt = ' persist enhanced'
+        self.cmd('set term x11' + termopt, flush=True)
 
         #self.gp.stdout.readline()
         #if self.gp.stdout.readline()[:31] == 'gnuplot: unable to open display':
@@ -78,7 +79,8 @@ class gp_plotter(object):
         if 'xlabel' in args:
             self.cmd("set xlabel \"%s\"" % (args['xlabel'],))
         if 'ylabel' in args:
-            self.cmd('set ylabel "%s"' % (args['ylabel'],))
+            # seems to be buggy when using enhanced
+            self.cmd("set ylabel offset character 0, -5 \"%s\"" % (args['ylabel'],))
         if 'xrange' in args:
             self.cmd("set xrange [%f:%f]" % args['xrange'])
         if 'yrange' in args:
@@ -115,9 +117,9 @@ class gp_plotter(object):
         # save current plot as EPS file
         
         print "\nsaving plot to " + fnamebase + ".eps ..."
-        self.cmd("set term push")
-        self.cmd("set terminal postscript eps color")
-        self.cmd("set output \"%s.eps\"" % fnamebase)
+        self.cmd('set terminal postscript eps enhanced')
+        self.cmd('set ylabel offset character 0, 0')
+        self.cmd('set output "%s.eps"' % fnamebase)
 
 
 

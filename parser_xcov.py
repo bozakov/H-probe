@@ -408,8 +408,8 @@ def xcplotter(xc, gp=None):
     min_y, max_y = (1e-6,1e-0)
 
     # set plot options
-    gp.setup(xlabel='log_10(lag) [s]', 
-             ylabel='covariance', 
+    gp.setup(xlabel='log_{10}(lag) [s]', 
+             ylabel='log_{10}(autocovariance)', 
              xrange=(min_x, max_x), 
              yrange=(min_y,max_y),
              xtics=[(i*options.delta,i) for i in 10**arange(log10(options.L)+1)],
