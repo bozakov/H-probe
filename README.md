@@ -19,7 +19,7 @@ Requirements
 
 1. Linux operating system 
 2. root privileges to use libpcap for packet capture
-3. python version 2.6 or 2.7 including the following required python packages: pypcap, numpy, scapy. Additionally the following optional python packages can be installed: affinity (pypi), progressbar. To use the plotting functionality gnuplot is required. 
+3. python version 2.6 or 2.7 including the following required python packages: pypcap, numpy, scapy. Additionally the following optional python packages will be used if installed: affinity (pypi), progressbar. To use the live plotting functionality gnuplot is must also be installed. 
 
 In Debian based distributions you should be able to install all necessary packages using:
 
