@@ -110,7 +110,7 @@ class AggVarEstimator(threading.Thread):
 
     def run(self):
         stats = self.stats
-        max_seq = -1                                       # store maximum sequence number received until now
+        last_seq = -1                                       # store maximum sequence number received until now
         last_slot = 0
 
         if options.min_rtt == -1.0:
@@ -147,9 +147,9 @@ class AggVarEstimator(threading.Thread):
             #    continue
             ## each dropped probe indicates a full queue append, a
             ## 1 to the covariance vector
-            #while seq!=max_seq+1:
-            #    max_seq += 1
-            #    next_slot = slots[max_seq]
+            #while seq!=last_seq+1:
+            #    last_seq += 1
+            #    next_slot = slots[last_seq]
             #    if next_slot==-1:                         # slottimes vector might be incomplete
             #        continue
             #    slot_delta = next_slot - last_slot
@@ -158,7 +158,7 @@ class AggVarEstimator(threading.Thread):
             #    self.append_fast(True, slot_delta-1)
 
 
-            max_seq = seq
+            last_seq = seq
 
 
             slot_delta = slot - last_slot
@@ -349,7 +349,7 @@ def avparser(pipe, ns, ST=None):
     except KeyboardInterrupt:
             print 'canceled saving.'
 
-    DEBUG(__name__ + ': done')
+    DEBUG('done', __name__ )
 
 
 
@@ -373,8 +373,8 @@ def avplotter(av):
 
 
         # set plot options
-        gp.setup(xlabel='log_10(M) [s]', 
-                 ylabel='aggregate variance', 
+        gp.setup(xlabel='log_{10}(M) [s]', 
+                 ylabel='log_{10}(aggregate variance)', 
                  xrange=(min_x, max_x), 
                  yrange=(min_y, max_y),
                  )

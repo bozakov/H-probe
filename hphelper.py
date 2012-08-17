@@ -11,7 +11,7 @@ options = None
 
 class txt_color:
     INFO = '\033[95m'
-    BLUE = '\033[94m'
+    WARN = '\033[94m'  #blue
     GREEN = '\033[92m'
     DEBUG = '\033[31m'
     ERROR = '\033[34m'
@@ -149,7 +149,6 @@ def bar(options, stats, max_seq=None):
             return 
 
 
-
         while 1:
             time.sleep(0.5)
             try:
@@ -161,6 +160,8 @@ def bar(options, stats, max_seq=None):
                 pbar.update(pbar_percent)
             else:
                 print stats.seq
+        print 
+        print 
 
 
 def bar_init(options, stats, max_seq=None):
@@ -236,11 +237,11 @@ def load_process_affinities():
 
         
 
-def err(errortext, module_name='', errcode=1):
+def ERROR(errortext, module_name='', errcode=1):
     print txt_color.ERROR + 'ERROR' + txt_color.END + ':\t%s' % (errortext)
     raise SystemExit(errcode)
 
-ERROR = err
+err = ERROR 
 
 def DEBUG(infotext, module_name='', level=1):
     if module_name:
@@ -249,4 +250,7 @@ def DEBUG(infotext, module_name='', level=1):
         print txt_color.DEBUG + 'DEBUG' + txt_color.END + '{0:<27}{1}'.format(module_name+':', infotext)
 
 def INFO(infotext, value=''):
-    print '{0:<35}{1}'.format(txt_color.INFO + infotext + txt_color.END + ':', str(value))
+    print '{0:<41}{1}'.format(txt_color.INFO + infotext + txt_color.END + ':', str(value))
+
+def WARN(infotext, value=''):
+    print '{0:<41}{1}'.format(txt_color.WARN + infotext + txt_color.END + ':', str(value))

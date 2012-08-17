@@ -15,7 +15,7 @@ DEBUG = hphelper.DEBUG
 
 def dumpwriter(pipe, ns, ST=None):
     hphelper.set_affinity('parser') 
-    DEBUG('starting ' + __name__)
+    DEBUG('starting',  __name__)
 
     stats = hphelper.stats_stats()
 
@@ -50,17 +50,16 @@ def dumpwriter(pipe, ns, ST=None):
     try:
        while 1:
             (seq, slot, rtt) = pipe.recv()
-            stats.update(seq, rtt=rtt, current_slot=slot)
+            if seq == -2: break
 
-            if slot == -1:
-                 rtt = -1
-                 stats.snd_err += 1
+            stats.update(seq, rtt=rtt, current_slot=slot)
 
             fs.write("%d %d %.9f\n" % (seq, slot , rtt))
     except (ValueError, KeyboardInterrupt) as e:
         print 
-        DEBUG( __name__ + ': done')
+
     fs.close()
+    DEBUG('done',  __name__)
 
     stats.run_end = time.time()
     stats.pprint()

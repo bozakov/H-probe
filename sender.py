@@ -27,8 +27,7 @@ except ImportError:
 
 
 options = hphelper.options
-DEBUG = hphelper.DEBUG
-
+from hphelper import DEBUG, INFO, ERROR
 
 def checksum(packet):
     """Generates a checksum of a (ICMP) packet. Based on ping.c on
@@ -77,7 +76,9 @@ def sendloop(ns):
         pnum = ns.cnum
     else:
         pnum = options.pnum
-        print 'expected run time:\t ~%f s (mean inter packet time %.3e s)' % (geotimes[-1], options.delta/options.rate)
+        INFO('expected run time', '~%f s (mean inter packet time %.3e s)' % (geotimes[-1], options.delta/options.rate))
+        if geotimes[-1]/60/60>4:
+            WARN('WARNING', 'stationarity may not hold!')
 
     try:
         s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW)  # create the raw-socket
@@ -136,11 +137,11 @@ IPDST = options.IPDST
 
 
 if not options.loaddump:
-    print 'generating sending times for %i probes' % (options.pnum)
+    print 'generating %i ICMP probes...' % (options.pnum), 
+    sys.stdout.flush()
+
     # store send times as an slot index
     slottimes = np.cumsum(np.random.geometric(options.rate, size=options.pnum)).astype(int)
-
-
 
     # pre-generate all ICMP packets in an numpy array so we do not have to
     # waste time at runtime
@@ -153,15 +154,10 @@ if not options.loaddump:
             str_p = str(p)
         except socket.error:
             err("scapy needs root privileges!")
-        print 'generating ICMP packets...', 
-        sys.stdout.flush()
-
 
         hdr = str_p[:ETHER_HDR_LEN+IP_HDR_LEN]
         pkt = str_p[ETHER_HDR_LEN+IP_HDR_LEN:]
         psize = options.plen + ETHER_HDR_LEN
-
-
 
         # packet and format 
         p = [ hdr, 

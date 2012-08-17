@@ -422,7 +422,8 @@ def xcplotter(xc, gp=None):
         i += 1
         if i%10==0:             # plot confidence levels every 10 frames
             ci_level = xc_conf_int()
-            gp.arrow(min_x, ci_level, max_x, ci_level, '3', 8)
+            #gp.arrow(min_x, ci_level, max_x, ci_level, '3', 8)
+            gp.level(ci_level, min_x, max_x)
 
         # TODO does not terminate cleanly if X11 display cannot be opened
         time.sleep(fps)
@@ -435,7 +436,8 @@ def xcplotter(xc, gp=None):
     # calculate confidence interval
     ci_level = xc_conf_int()
     # plot confidence interval level
-    gp.arrow(min_x, ci_level, max_x, ci_level, '3', 8)
+    #gp.arrow(min_x, ci_level, max_x, ci_level, '3', 8)
+    gp.level(ci_level, min_x, max_x)
 
     # perform fitting for values larger than ci_level
     (d,y0) = xc.fit() # TODO thresh=ci_level
@@ -461,7 +463,8 @@ def xcplotter(xc, gp=None):
     # we must replot everything to save it to the file
     # plot H linear fit and label it
     gp.label('H=%.2f' % H, 2, 1.2*(y0))      
-    gp.arrow(1, y0, xc.L, y0*xc.L**d, '4')
+    #gp.arrow(1, y0, xc.L, y0*xc.L**d, '4')
+    gp.level(ci_level, min_x, max_x)
     if ydata:
         gp_cmd("plot '-' with points ls 3\n %s\n e"  % ydata)
 

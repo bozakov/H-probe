@@ -78,7 +78,6 @@ def rcvloop(data_pipe, ns, geotimes=None):
 
     # timeout_ms was reached, notify parser that we are done
     data_pipe.send('RCV_DONE')
-    #q.close()
     DEBUG('DONE', __name__)
 
 

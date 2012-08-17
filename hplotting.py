@@ -58,7 +58,7 @@ class gp_plotter(object):
         if self.PLOT_LOG:
             self.cmd('set log xy')
 
-        self.cmd('set grid')
+        self.cmd('set grid front')
         self.cmd('unset key')
         self.cmd('set format y "%.0e"')
 
@@ -92,10 +92,14 @@ class gp_plotter(object):
 
     def arrow(self,x1,y1,x2,y2, tag='', ls=7):
         self.cmd('set arrow '+ str(tag) +' from %f,%f to %f,%f nohead ls %d' % (x1,y1,x2,y2,ls))
-#        self.cmd('set arrow '+ str(tag) +' from %f,%f to %f,%f nohead lt 7 linecolor rgb "blue"' % (x1,y1,x2,y2))
         self.cmd('show arrow ' + str(tag))
 
-    
+
+    def level(self,level,x1,x2, min_level=1e-8, ls=7, tag=1):
+        ''' plot a box representing a level'''
+        self.cmd('set object ' + str(tag) + ' rect from %e,%e to %e,%e' % (x1,min_level,x2,level) )
+        self.cmd('set object ' + str(tag) + ' fillcolor rgb "blue" fillstyle  solid 0.075 noborder')
+        self.cmd('show object ' + str(tag))
 
     def label(self,text,x,y,tag=''):
         self.cmd('set label '+ str(tag) +' "%s" at %e,%e\n' % (text, x,y))
