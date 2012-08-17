@@ -165,8 +165,10 @@ def dump_loader():
         options.DST = dump.dump_options['DST']
         options.plen = dump.dump_options['plen']
         options.delta = dump.dump_options['delta']
-        options.start_time = dump.dump_options['start_time']
         options.tag = dump.dump_options['tag'] + options.tag
+        options.start_time = dump.dump_options['start_time']
+    except KeyError as ke:
+        pass
     except SyntaxError as se:
         print 'could not parse options'
 

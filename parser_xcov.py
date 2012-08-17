@@ -30,7 +30,7 @@ import hplotting
 try:
     # import cython functions if available
     import hpfast
-except ImportError as e:
+except (ImportError, ValueError) as e:
     pass
 
 
