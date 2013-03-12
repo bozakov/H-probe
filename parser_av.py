@@ -3,14 +3,12 @@
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
 import time
-
 import threading
+import warnings
 from collections import deque
-from itertools import islice
 
 try:
     import numpy as np
-    import types                          # for cython binding
 except ImportError:
     print __name__ + ": please make sure the following packages are installed:"
     print "\tpython-numpy"
@@ -19,15 +17,14 @@ except ImportError:
 try:
     # import cython functions if available
     import hpfast
+    import types                          # for cython bindings
 except (ImportError, ValueError) as e:
     pass
-
-
-
 
 import hphelper
 import hplotting
 
+warnings.simplefilter('ignore', np.RankWarning)
 
 np_append = np.append
 options = hphelper.options

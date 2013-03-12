@@ -13,7 +13,6 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 try:
     from numpy import random as prnd
-#    from numpy import *
     import numpy as np
 
     import pcap               # python-pypcap

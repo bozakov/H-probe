@@ -50,14 +50,12 @@ def statsparser(pipe, ns, slottimes=None):
 
 
     run_start = time.time()
-
-
     while 1:
         try:
             data = pipe.recv()
             if data == 'RCV_DONE':
                 break
-           
+
             (seq, currslot, rtt) = data
             if currslot == -1:
                  rtt = -1
@@ -81,7 +79,6 @@ def statsparser(pipe, ns, slottimes=None):
             print e, seq
             pass ### TODO last sequence number causes error
 
-    
     # omit invalid rtts
     rtts = rtts[rtts!=-1]
 

@@ -143,8 +143,8 @@ options.IPDST = IPDST
 options.DST = DST
 
 dst_route = Route()
-(eth, IPSRC, IPGW) = dst_route.route(IPDST)
-options.eth = eth
+(ETH, IPSRC, IPGW) = dst_route.route(IPDST)
+options.eth = ETH
 
 try:
     os.nice(-20)
@@ -153,7 +153,7 @@ except:
 
 
 #################################################################################
-INFO("source IP", "%s (%s, %s)" % (IPSRC, options.eth, get_if_hwaddr(eth)))
+INFO("source IP", "%s (%s, %s)" % (IPSRC, options.eth, get_if_hwaddr(ETH)))
 INFO("destination IP", IPDST)
 INFO("probe size:", "%d byte" % (options.plen))
 if options.min_rtt>=0:
@@ -192,8 +192,8 @@ def run_processes(ns, *procs):
         print 'main process interrupted'
         for p in plist:
             p.terminate()
-        
-        
+
+
     #try:
     #        proc.join()
     #    except KeyboardInterrupt:
