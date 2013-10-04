@@ -61,7 +61,7 @@ def dummyloop(ns):
 
 
 ################################################################################
-def sendloop(ns):
+def sendloop(ns, busy_loop=False):
     addr = (options.eth, 0x0800)
     geotimes = options.delta*slottimes
 
@@ -75,7 +75,7 @@ def sendloop(ns):
         pnum = ns.cnum
     else:
         pnum = options.pnum
-        INFO('expected run time', '~%f s (mean inter packet time %.3e s)' % (geotimes[-1], options.delta/options.rate))
+        INFO('expected run time', '~%.2f s (mean inter-probe time %.2e s)' % (geotimes[-1], options.delta/options.rate))
         if geotimes[-1]/60/60>4:
             WARN('WARNING', 'stationarity may not hold!')
 
@@ -95,23 +95,28 @@ def sendloop(ns):
 
     DEBUG('READY', __name__)
 
-    busy_sleep = options.delta/10
+    BUSY_SLEEP = options.delta/10
 
     payload = '8'*ARRAY_PAYLOAD
     try:
         t_start = timetime()
         geotimes += t_start
         pkt = ''.join([pkts[0],payload])
-        for i in xrange(1,pnum):
-            #hexdump(pkts[i])
-            #Ether(pkts[i]).show2()
-
-            s.send(pkt)
-            pkt = ''.join([pkts[i],payload])    # add payload to packet
-
-            while (timetime() < geotimes[i]):
-                #time_sleep(busy_sleep)          # TODO we can reduce the load at the expence of accuracy
-                pass
+        
+        if busy_loop==True:
+            for i in xrange(1,pnum):
+                s.send(pkt)
+                pkt = ''.join([pkts[i],payload])    # append payload 
+                while (timetime() < geotimes[i]):
+                    pass
+        else:                                       # reduce the load at the expence of accuracy
+            for i in xrange(1,pnum):
+                #hexdump(pkts[i])
+                #Ether(pkts[i]).show2()
+                s.send(pkt)
+                pkt = ''.join([pkts[i],payload])    # append payload 
+                while (timetime() < geotimes[i]):
+                    time_sleep(BUSY_SLEEP)          
         s.send(pkt)                             # send the last prepared packet
 
     except KeyboardInterrupt:
@@ -149,7 +154,7 @@ if not options.loaddump:
     try:
         p = Ether()/IP(dst=IPDST, ttl=64)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
         try:
-            # generate a packet string which we can modify
+            # generate a packet string which we can modify efficiently
             str_p = str(p)
         except socket.error:
             err("scapy needs root privileges!")

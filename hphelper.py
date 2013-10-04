@@ -79,17 +79,17 @@ class stats_stats:
             INFO("packets dropped (sender)", self.snd_err)
         if self.rcv_err:
             INFO("packets dropped", self.rcv_err)
-        INFO("max sqeuence nr." , self.seq)
+        INFO("max sequence nr." , self.seq)
         if self.rx_total:
             INFO("total probes received", self.rx_total)
-            INFO("RTT mean", "%.6f" % (self.mean_rtt()))
+            INFO("RTT mean", "%.6f s" % (self.mean_rtt()))
         if self.rx_slots:
             INFO("max. slot received", self.rx_slots)
-            INFO("sample probing intensity", "%.6f" % (self.mean_a()))
+            INFO("sample probing intensity", "%.4f" % (self.mean_a()))
         if self.min_rtt!=np.inf:
-            INFO("RTT minimum", "%.6f" % (self.min_rtt))
+            INFO("RTT minimum", "%.6f s" % (self.min_rtt))
         if self.max_rtt!=-np.inf:
-            INFO("RTT maximum", "%.6f" % (self.max_rtt))
+            INFO("RTT maximum", "%.6f s" % (self.max_rtt))
         if self.rx_out_of_order:
             INFO("out of order packets", self.rx_out_of_order)
          
@@ -122,9 +122,10 @@ class fixed_buf(object):
 
 
 def test_time_res():
+    """Helper function to test the resolution of time.time """
     timetime = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
  
-    t=0
+    t=0.0
     n=10**5
 
     for i in xrange(n):

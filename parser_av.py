@@ -32,15 +32,21 @@ DEBUG = hphelper.DEBUG
 ERROR = hphelper.err
 
 class var_est(object):
+    """An online variance estimator. The object is fed new samples
+    using it's step method and calulates the variance on the fly.
+    """
+
+    N_MIN = 25                 # minimum number of samples required to
+                               # return a variance estimate
 
     def __init__(self,m):
-        self.m = m
+        self.M = m             # aggregation level in seconds: only used for printing
         self.n = 0
-        self.mean = 0
-        self.M2 = 0
+        self.mean = 0.0
+        self.M2 = 0.0
 
     def step(self,x):
-        """Take a single (avaraged) sample and update the variance"""
+        """Receive a single sample and update the variance"""
         self.n += 1
         delta = x - self.mean
         self.mean += delta/self.n
@@ -48,10 +54,22 @@ class var_est(object):
 
     def var(self):
         """Returns the variance estimate for the current aggregation
-        level. Returns NaN if less than 100 samples were available for
+        level. Returns NaN if less than N_MIN samples were available for
         calculating the variance"""
-        if self.n<100: return np.nan
+        if self.n<self.N_MIN: return np.nan
         return self.M2/(self.n - 1)
+    
+    def freeze(self):
+        """Reset sample counter for numeric stability"""
+        self.M2 = self.M2/self.n 
+        self.n = 1
+
+    def __str__(self):
+        return '%f\t%.6f\t%d\t%.6f\n' % (self.M, self.var(), self.n, self.mean)
+
+    def __repr__(self):
+        return 'M%d samples: %d\tvar: %.6f' % (self.M, self.n, self.var())
+
 
 
 try:
