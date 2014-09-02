@@ -4,7 +4,8 @@
 
 
 import array
-import dnet # note dnet.ip_cksum_add has a bug on OSX Mavericks
+
+
 import dpkt
 import logging
 import socket
@@ -16,10 +17,19 @@ import hphelper
 from hphelper import err, set_affinity 
 
 try:
+    import dnet               # OSX: brew install libdnet --with-python
+                              # note: dnet.ip_cksum_add has a bug on OSX Mavericks
+except ImportError:
+    try:
+        import dumbnet        # different name under debian systems
+    except ImportError:
+        print __name__ + ": please make sure the following packages are installed:"
+        print "\tpython-dnet"
+
+try:
     from numpy import random as prnd
     import numpy as np
     import pcap               # python-pypcap
-
 except ImportError:
     print "!! please make sure all the following packages are installed:"
     print "\tpython-pypcap"

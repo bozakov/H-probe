@@ -24,15 +24,23 @@ except ImportError:
 
 
 try:
+    import dnet               # OSX: brew install libdnet --with-python
+                              # note: dnet.ip_cksum_add has a bug on OSX Mavericks
+except ImportError:
+    try:
+        import dumbnet        # different name under debian systems
+    except ImportError:
+        print __name__ + ": please make sure the following packages are installed:"
+        print "\tpython-dnet"
+
+try:
     import numpy as np
     import pcap               # python-pypcap
-    import dnet               # OSX: brew install libdnet --with-python
-
-    #from scapy.all import *
 except ImportError as e:
     print e
     print __name__ + ": please make sure the following packages are installed:"
     print "\tpython-pypcap"
+    print "\tpython-numpy"
     print "\tpython-numpy"
     print "optional"
     print "\tpython-progressbar"
