@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-# Copyright 2012 IKT Leibniz Universitaet Hannover
+# Copyright 2014 IKT Leibniz Universitaet Hannover
 # GPL2
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
@@ -46,6 +46,17 @@ except ImportError as e:
     print "\tpython-progressbar"
     print "use sudo apt-get install in debian"
     exit(1)
+
+try:
+    import setproctitle
+    setproctitle.setproctitle('h-probe')
+except:
+    pass # Ignore errors, since this is only cosmetic
+
+try:
+    os.nice(-20)
+except:
+    print "could not set niceness"
 
 
 import hphelper
@@ -116,7 +127,6 @@ elif sum(parsers)==0:
 options.C = (options.plen+24)*8/options.delta    # 8 (preamble) + 12 (IPG) + 4 (cksum) 
 
 
-
 if options.DEBUG:
     # estimate time.time() accuracy
     hphelper.test_time_res()
@@ -163,14 +173,6 @@ options.eth = eth_info['name']
 options.IPSRC = dnet.addr(eth_info['addr'].ip)
 
 
-
-
-try:
-    os.nice(-20)
-except:
-    print "could not set niceness"
-
-
 #################################################################################
 INFO("source IP", "%s (%s)" % (net_info['ip_src'], net_info['eth']))
 INFO("destination IP", net_info['ip_dst'])
@@ -179,7 +181,6 @@ if options.min_rtt>=0:
     INFO("minimum RTT", " %f s" % (options.min_rtt))
 INFO("probing rate", '%.2f Mbps (%.2f), ' % (options.rate*options.C/1e6, options.rate) + 'delta: %.3e s, %d pps' % (options.delta, options.rate/options.delta))
 print
-
 
 
 #################################################################################
@@ -213,16 +214,6 @@ def run_processes(ns, *procs):
             p.terminate()
 
 
-    #try:
-    #        proc.join()
-    #    except KeyboardInterrupt:
-    #        ns.ABORT = True
-            #parser_p.join()
-            #rcvloop_p.terminate()
-            #sendloop_p.terminate()
-
-
-
 
 # initialize IPC channels:
 # pipe for sending (seq, slot, RTTS) tuples from CAPTURE to PARSER
@@ -230,14 +221,11 @@ data_pipe_out, data_pipe_in = multiprocessing.Pipe(duplex=False)
 
 manager = multiprocessing.Manager()
 ns = manager.Namespace()
-
-
-
 ns.cnum = None
 
-psender = {'target':None, 'args':None, 'name':'sender'}
+psender  = {'target':None, 'args':None, 'name':'sender'}
 pcapture = {'target':None, 'args':None, 'name':'capture'}
-pparser = {'target':None, 'args':None, 'name':'parser'}
+pparser  = {'target':None, 'args':None, 'name':'parser'}
 
 
 #TODO TEMP

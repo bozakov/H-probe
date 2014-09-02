@@ -26,6 +26,12 @@ import hphelper
 import hplotting
 
 
+try:
+  import setproctitle
+  setproctitle.setproctitle('h-probe')
+except:
+  pass # Ignore errors, since this is only cosmetic
+
 
 try:
     # import cython functions if available
@@ -37,17 +43,6 @@ except (ImportError, ValueError) as e:
 options = hphelper.options
 DEBUG = hphelper.DEBUG
 
-
-# from numpy import *
-# data = random.power(1,10000)>.5
-# data = [1,1,0,1,1,1,1,0,0,1,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,1]
-# from parser_xcov import XcovEst
-# xc = XcovEst(len(data))
-# import matplotlib.pyplot as plt
-# plt.ion()
-# xc.test(data)
-# plt.loglog(arange(1,1000),xc.aggvar[1:1000])
-# t=time(); xc.aggvar; print time()-t
 
 class XcovEst(object):
 
@@ -161,7 +156,7 @@ class XcovEstimator(threading.Thread):
             self.stats = hphelper.stats_stats()
 
             self.xc = XcovEst(options.L)
-            self.L=self.xc.L            # max covariance lag
+            self.L = self.xc.L            # max covariance lag
 
             self.buf = buf
             self.slots = slots
@@ -178,10 +173,6 @@ class XcovEstimator(threading.Thread):
             hphelper.bar_init(options, self.stats)
 
             threading.Thread.__init__(self)
-
-
- 
-
 
 
     def conf_int(self, xcov=None):
@@ -202,25 +193,6 @@ class XcovEstimator(threading.Thread):
         return 2*sqrt((A**2 + 4*mean_a**2*mean_y_est**2*A)/self.xc.slot_count) 
         #return 2*var_a*sqrt(var_a**2 + 4* mean_a**2)/sqrt(self.slot_count) # ca95
 
-
-    def xcov_int(self):
-        """Returns the covariance estimate using the cumulative sum approach TODO"""
-        xc = self.xc.xcov[1:]
-        var_w = xc[0]
-
-        mean_a = self.mean_a
-        var_a = self.var_a
-
-        mean_y_est = self.mean/mean_a
-        var_y_est = (var_w - mean_y_est**2*var_a)/(var_a + mean_a**2)
-
-
-        # calculate correction factor to correct error due to sampling
-        cfactor = insert(var_a/2*ones(self.L-1),0,0)*(var_y_est + mean_y_est**2) #CHECKME TODO
-
-        #cs_xc = (cumsum(xc) - cfactor)/arange(0, self.L)/mean_a**2
-        cs_xc = (self.cumtrapz(xc) - cfactor)/arange(0, self.L) 
-        return cs_xc[1:] 
 
 
     def fit(self, thresh=None, lag_range=(None,None)):
@@ -264,7 +236,6 @@ class XcovEstimator(threading.Thread):
         y = self.xc.xcov[1:]
         #y = self.xc.aggvar
 
-        #print y
         if any(y):
             return '\n'.join([str(a) for a in y])
         else:

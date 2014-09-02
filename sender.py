@@ -36,6 +36,12 @@ except ImportError:
     print "\tpython-numpy"
     exit(1)
 
+try:
+  import setproctitle
+  setproctitle.setproctitle('h-probe')
+except:
+  pass # Ignore errors, since this is only cosmetic
+
 
 options = hphelper.options
 from hphelper import DEBUG, INFO, ERROR

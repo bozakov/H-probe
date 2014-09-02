@@ -3,7 +3,9 @@
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
 import os
+import subprocess
 import time
+
 try:
     from numpy import *
 except ImportError:
@@ -11,8 +13,14 @@ except ImportError:
     print "\tpython-numpy"
     exit(1)
 
-import subprocess
 import hphelper
+
+try:
+  import setproctitle
+  setproctitle.setproctitle('h-probe')
+except:
+  pass # Ignore errors, since this is only cosmetic
+
 
 options = hphelper.options
 
