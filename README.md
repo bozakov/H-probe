@@ -8,6 +8,8 @@ Overview
 H-probe is an online active probing tool for estimating traffic correlations from end-to-end measurements. H-probe does not rely on a receiver as it uses ICMP echo packets. It uses libpcap to capture returning ICMP echo replies. From the timing information H-probe is able to estimate the correlation (covariance) of the cross traffic sharing the end-to-end path with the probing traffic. For Internet aggregate traffic it is known [Leland et al. '94] that it is long range dependent (LRD) with Hurst parameter H. The Hurst parameter can be estimated from the covariance slope that is given by 2H-2. H-probe also implements the aggregate variance method known from [Taqqu et al. '95], which is more robust than the covariance, for estimating H. 
 
 H-probe uses sampling methodology that is described in
+"[Estimating traffic correlations from sampling and active network probing](http://ieeexplore.ieee.org/xpl/abstractReferences.jsp?tp=&arnumber=6663503)", by A. Rizk, Z. Bozakov and M. Fidler. IFIP Networking Conference 2013, pp.1,9, 22-24 May 2013
+
 "H-Probe: Estimating Traffic Correlations from Sampling and Active Network Probing", by A. Rizk, Z. Bozakov and M. Fidler. The paper is available at [arXiv](http://arxiv.org/abs/1208.2870).
 
 H-Probe injects ICMP echo request probes from the sender to the target and captures the corresponding round trip times (RTT) using libpcap. Using the RTTs H-probe estimates the traffic correlations on the end-to-end path. Details of the algorithm are given the paper mentioned above.
