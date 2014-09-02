@@ -7,7 +7,10 @@ import threading
 import numpy as np
 import os 
 
-options = None
+class options:
+    DEBUG = False
+    loaddump = False
+
 
 class txt_color:
     INFO = '\033[95m'

@@ -1,27 +1,29 @@
-# Copyright 2012 IKT Leibniz Universitaet Hannover
+# Copyright 2014 IKT Leibniz Universitaet Hannover
 # GPL2
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
+
+import array
+import dnet # note dnet.ip_cksum_add has a bug on OSX Mavericks
+import dpkt
+import logging
+import socket
+import struct
 import sys
 import time
-import logging
 
 import hphelper
 from hphelper import err, set_affinity 
 
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-
 try:
     from numpy import random as prnd
     import numpy as np
-
     import pcap               # python-pypcap
-    from scapy.all import *
+
 except ImportError:
-    print "!! please make sure the following packages are installed:"
+    print "!! please make sure all the following packages are installed:"
     print "\tpython-pypcap"
     print "\tpython-numpy"
-    print "\tpython-scapy"
     exit(1)
 
 
@@ -62,12 +64,12 @@ def dummyloop(ns):
 
 ################################################################################
 def sendloop(ns, busy_loop=False):
-    addr = (options.eth, 0x0800)
+
     geotimes = options.delta*slottimes
 
-    set_affinity('sendloop')
+    set_affinity('sendloop') 
 
-    timetime = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
+    time_time  = time.time          # faster: http://wiki.python.org/moin/PythonSpeed/PerformanceTips
     time_sleep = time.sleep
 
  
@@ -79,53 +81,43 @@ def sendloop(ns, busy_loop=False):
         if geotimes[-1]/60/60>4:
             WARN('WARNING', 'stationarity may not hold!')
 
-    try:
-        s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW)  # create the raw-socket
-        s.bind(addr)                                          # ether type for IP e.g. ('eth1', 0x0800)
-        s.setblocking(False)                                  # False = disable blocking
-    except socket.error:
-        err("could not create raw socket, root privileges are required!")
 
 
-    # notify receiver that we are ready to send
+    # notify receiver that we are ready to send and block until
+    # receiver process says it is ready
     ns.SND_READY=True
-    # block until receiver says it is ready
     while not ns.RCV_READY:
         time.sleep(0.1)
 
     DEBUG('READY', __name__)
 
-    BUSY_SLEEP = options.delta/10
 
-    payload = '8'*ARRAY_PAYLOAD
+    payload_rest = '8'*PKT_ARRAY_APPEND
     try:
-        t_start = timetime()
+        t_start = time_time()
         geotimes += t_start
-        pkt = ''.join([pkts[0],payload])
+        pkt = ''.join([pkts[0],payload_rest])
         
         if busy_loop==True:
             for i in xrange(1,pnum):
-                s.send(pkt)
-                pkt = ''.join([pkts[i],payload])    # append payload 
-                while (timetime() < geotimes[i]):
+                sendpacket(pkt)
+                pkt = ''.join([pkts[i],payload_rest])    # append payload 
+                while (time_time() < geotimes[i]):
                     pass
-        else:                                       # reduce the load at the expence of accuracy
+        else:                                       
             for i in xrange(1,pnum):
-                #hexdump(pkts[i])
-                #Ether(pkts[i]).show2()
-                s.send(pkt)
-                pkt = ''.join([pkts[i],payload])    # append payload 
-                while (timetime() < geotimes[i]):
-                    time_sleep(BUSY_SLEEP)          
-        s.send(pkt)                             # send the last prepared packet
+                sendpacket(pkt)
+                pkt = ''.join([pkts[i],payload_rest])            # append payload 
+                time_sleep(np.max((geotimes[i]-time_time(),0.0)))  # reduce the load at the expence of accuracy    
+        sendpacket(pkt)                                 # send the last prepared packet
 
     except KeyboardInterrupt:
         pass
 
-    t_total = timetime() - t_start
+    t_total = time_time() - t_start
 
     print '\a',  
-    s.close()                 # close socket
+    #s.close()                 # close socket
     DEBUG("sender runtime:\t %.8f s" % (t_total))
 
 ##############################################################################
@@ -134,25 +126,44 @@ def sendloop(ns, busy_loop=False):
 IP_HDR_LEN    = 20
 ETHER_HDR_LEN = 14
 ICMP_HDR_LEN  = 8
-ARRAY_PLEN    = 100                  # number of packet bytes to store in pkts array
-ARRAY_PAYLOAD = max((options.plen + ETHER_HDR_LEN) - ARRAY_PLEN,0) # need to append this number of bytes to the payload while sending
-IPDST = options.IPDST
 
 
 
-if not options.loaddump:
-    print 'generating %i ICMP probes...' % (options.pnum), 
-    sys.stdout.flush()
 
-    # store send times as an slot index
-    slottimes = np.cumsum(np.random.geometric(options.rate, size=options.pnum)).astype(int)
 
-    # pre-generate all ICMP packets in an numpy array so we do not have to
-    # waste time at runtime
-    pkts = np.empty(options.pnum, dtype=np.dtype((str, ARRAY_PLEN)))
 
+def gen_probes_icmp():
+
+    payload = '8'*(options.plen-(ETHER_HDR_LEN+4)-IP_HDR_LEN-ICMP_HDR_LEN)
+    echo = dpkt.icmp.ICMP.Echo(seq=0, id=2692, data=payload)
+    icmp = dpkt.icmp.ICMP(type=dpkt.icmp.ICMP_ECHO, data=echo)
+
+    payload_rest = '8'*(len(payload)-4-4)
+    for i in xrange(options.pnum):
+        seq_id = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
+        j=long(slottimes[i])
+        slot_id = struct.pack('!L', (j) % 0xFFFFFFFF)         # increment 4 byte slot ID in ICMP payload
+
+        icmp.data.data = ''.join([seq_id,slot_id,payload_rest])
+        pkts[i] = str(icmp)[:PKT_ARRAY_WIDTH]                    # only store first 100 packet bytes 
+
+    print 'done!'
     try:
-        p = Ether()/IP(dst=IPDST, ttl=64)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, dpkt.ip.IP_PROTO_ICMP)
+        s.connect((options.IPDST, 1))
+    except Exception as e:
+        print e
+    return s
+
+
+
+    
+    
+
+def gen_probes_raw():
+        
+    try:
+        p = Ether()/IP(dst=options.IPDST, ttl=64)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
         try:
             # generate a packet string which we can modify efficiently
             str_p = str(p)
@@ -187,11 +198,90 @@ if not options.loaddump:
             ck = ck + M_ - M
 
             p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
-            pkts[i] = ''.join(p)[:ARRAY_PLEN]                   # only store first 100 packet bytes 
+            pkts[i] = ''.join(p)[:PKT_ARRAY_WIDTH]                  # only store first 100 packet bytes 
+
+            #hexdump(pkts[i])
+            #Ether(pkts[i]).show2()
 
             M_=M
 
+    except (MemoryError, ValueError):
+        err("Not enough memory!",2)
+    except KeyboardInterrupt:
+        print 'terminated by user.'
+    except ImportError:
+        print "!! please make sure that the following package is installed:"
+        print "\tpython-scapy"
+        raise SystemExit(1)
 
+
+    print 'done'
+    try:
+        addr = (options.eth, 0x0800)
+        s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW)  # create a raw-socket (doesn't work on OSX)
+        s.bind(addr)                                          # ether type for IP e.g. ('eth1', 0x0800)
+        s.setblocking(False)                                  # False = disable blocking
+    except socket.error:
+        err("could not create raw socket, root privileges are required!")
+    return s
+
+
+def gen_probes_raw2():
+    from dpkt.ethernet import Ethernet
+    from dpkt.ip import IP
+    from dpkt.icmp import ICMP
+    
+    eth_info = dnet.intf().get_dst(options.net_info['ip_dst'])
+    options.net_info['l2_src'] = eth_info['link_addr'].eth
+    gw = dnet.route().get(options.net_info['ip_dst'])
+
+    if gw:
+        options.net_info['l2_dst'] = dnet.arp().get(gw).eth
+    else:   # destination is in the same subnet
+        options.net_info['l2_dst'] = dnet.arp().get(options.net_info['ip_dst']).eth
+
+    try:
+        icmp_data = ICMP(type=8, data=ICMP.Echo(seq=0, id=0,data = '8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN)))
+        ip_data = IP(src=options.net_info['ip_src'].ip, dst=options.net_info['ip_dst'].ip, p=1, data=icmp_data)
+        ip_data.len += len(ip_data.data)
+
+        p0 = Ethernet(src=options.net_info['l2_src'], dst=options.net_info['l2_dst'], data=ip_data)
+        str_p = str(p0)
+
+        hdr = str_p[:ETHER_HDR_LEN+IP_HDR_LEN]
+        pkt = str_p[ETHER_HDR_LEN+IP_HDR_LEN:]
+        psize = options.plen + ETHER_HDR_LEN
+
+        # packet and format 
+        p = [ hdr, 
+              pkt[:2], 
+              struct.pack('<H', (0)),                           # p[2] = ICMP checksum
+              pkt[4:16], 
+              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[4] = sequence number (4 bytes)
+              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[5] = slot number (4 bytes)
+              pkt[16+4+4:]]                                     # payload
+
+        ck = checksum(''.join(p[1:])) & 0xFFFF                  # calculate initial ICMP cksum
+        p[2] = struct.pack('H', (ck))                           # update ICMP cksum
+
+
+
+        M_ = sum(struct.unpack('HHHH',''.join(p[4:6])))
+        j = 0
+        for i in xrange(options.pnum):
+            j=long(slottimes[i])
+            p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
+            p[5] = struct.pack('!L', (j) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
+            M = sum(struct.unpack('HHHH', ''.join(p[4:6])))
+            ck = ck + M_ - M
+
+            p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
+            pkts[i] = ''.join(p)[:PKT_ARRAY_WIDTH]                  # only store first 100 packet bytes 
+
+            #hexdump(pkts[i])
+            #Ether(pkts[i]).show2()
+
+            M_=M
 
     except (MemoryError, ValueError):
         err("Not enough memory!",2)
@@ -199,7 +289,61 @@ if not options.loaddump:
         print 'terminated by user.'
         raise SystemExit(-1)
 
-    print 'done'
- 
+    print 'done.'
+    try:
+        po = pcap.pcap(options.net_info['eth'])
+        return po
+    except Exception as e:
+        print e
 
+
+
+
+import code
+
+if __name__=='__main__':
+    options.pnum = 1000
+    options.rate = 0.1
+    options.plen = 64
+    options.delta = 1e-3
+
+    options.DST = '172.23.180.111'
+
+    eth_info = dnet.intf().get_dst(dnet.addr(options.DST))
+
+    net_info = {}
+    net_info['eth'] = eth_info['name']
+    net_info['ip_src'] = dnet.addr(eth_info['addr'].ip)
+    net_info['ip_dst'] = dnet.addr(options.DST, dnet.ADDR_TYPE_IP)
+
+    options.net_info = net_info
+
+#    class ns: pass
+#    ns.cnum = None
+#    ns.RCV_READY = True
+#    sendloop(ns, busy_loop=False)
+
+
+
+PKT_ARRAY_WIDTH   = 100                  # number of packet bytes to store in pkts array
+PKT_ARRAY_APPEND  = max((options.plen + ETHER_HDR_LEN) - PKT_ARRAY_WIDTH,0) # need to append this number of bytes to the payload while sending
+
+def sendpacket(pkt_str):
+    s.sendpacket(pkt_str)
+    #s.send(pkt)
+
+if not options.loaddump:
+    print 'generating %i ICMP probes...' % (options.pnum), 
+    sys.stdout.flush()
+
+    # store send times as an slot index
+    slottimes = np.cumsum(np.random.geometric(options.rate, size=options.pnum)).astype(int)
+
+    # pre-generate all ICMP packets in an numpy array so we do not have to
+    # waste time at runtime
+    pkts = np.empty(options.pnum, dtype=np.dtype((str, PKT_ARRAY_WIDTH)))
+
+    probe_socket = gen_probes_raw2()
+    #probe_socket = gen_probes_icmp()
+    s = probe_socket
 

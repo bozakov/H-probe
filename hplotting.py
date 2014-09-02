@@ -25,6 +25,7 @@ class gp_plotter(object):
         if os.getenv('DISPLAY') is None:
             options.plot = False
             options.no_plot = True
+            print 'DIPLAY variable not set'
             return
 
         self.PLOT_LOG = loglog

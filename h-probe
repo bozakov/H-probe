@@ -14,7 +14,6 @@ import threading
 import multiprocessing
 from optparse import OptionParser
 
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 # import Psyco if available
 try:
@@ -27,14 +26,16 @@ except ImportError:
 try:
     import numpy as np
     import pcap               # python-pypcap
+    import dnet               # OSX: brew install libdnet --with-python
 
-    from scapy.all import *
-except ImportError:
+    #from scapy.all import *
+except ImportError as e:
+    print e
     print __name__ + ": please make sure the following packages are installed:"
     print "\tpython-pypcap"
     print "\tpython-numpy"
-    print "\tpython-scapy"
-    print "\tpython-progressbar (optional)"
+    print "optional"
+    print "\tpython-progressbar"
     print "use sudo apt-get install in debian"
     exit(1)
 
@@ -83,7 +84,6 @@ oparser.add_option("--tag", dest="tag", default='', type="string",
                   help="optional tag appended to save filename (default: %default)")
 oparser.add_option("--verbose", action="store_true", dest="DEBUG", default=False,
                   help="print additional info")
-
 (hphelper.options, args) = oparser.parse_args()
 options = hphelper.options 
 from hphelper import DEBUG, INFO, ERROR
@@ -138,13 +138,24 @@ except IndexError:
 if options.tag:
     options.tag = '_' + options.tag
 
-IPDST = socket.gethostbyname(DST)
-options.IPDST = IPDST
 options.DST = DST
+ip_addr = dnet.addr(DST, dnet.ADDR_TYPE_IP)
+options.IPDST = str(ip_addr)
+eth_info = dnet.intf().get_dst(ip_addr)
 
-dst_route = Route()
-(ETH, IPSRC, IPGW) = dst_route.route(IPDST)
-options.eth = ETH
+net_info = {}
+net_info['eth'] = eth_info['name']
+net_info['ip_src'] = dnet.addr(eth_info['addr'].ip)
+net_info['ip_dst'] = dnet.addr(DST, dnet.ADDR_TYPE_IP)
+
+options.net_info = net_info
+
+
+options.eth = eth_info['name']
+options.IPSRC = dnet.addr(eth_info['addr'].ip)
+
+
+
 
 try:
     os.nice(-20)
@@ -153,9 +164,9 @@ except:
 
 
 #################################################################################
-INFO("source IP", "%s (%s, %s)" % (IPSRC, options.eth, get_if_hwaddr(ETH)))
-INFO("destination IP", IPDST)
-INFO("probe size:", "%d byte" % (options.plen))
+INFO("source IP", "%s (%s)" % (net_info['ip_src'], net_info['eth']))
+INFO("destination IP", net_info['ip_dst'])
+INFO("probe size", "%d byte" % (options.plen))
 if options.min_rtt>=0:
     INFO("minimum RTT", " %f s" % (options.min_rtt))
 INFO("probing rate", '%.2f Mbps (%.2f), ' % (options.rate*options.C/1e6, options.rate) + 'delta: %.3e s, %d pps' % (options.delta, options.rate/options.delta))
@@ -256,6 +267,7 @@ if options.dump:
     pparser['target'] = dumpwriter.dumpwriter
 elif options.aggvar:
     import parser_av
+    print 'hererer'
     pparser['target'] = parser_av.avparser
 elif options.hist:
     import parser_stats
