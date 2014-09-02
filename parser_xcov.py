@@ -51,7 +51,10 @@ class XcovEst(object):
         self._xc = zeros(self.L, dtype=int)
         self.win = zeros(self.L, dtype=bool)
         self.probe_count = 0
-        self.slot_count = 0 #self.L
+        self.slot_count = 0
+
+        self.av_coeff = self.aggvar_coeff(self.L)
+
 
     def append(self, x, zero_count = 0):
         """ Appends the last received probe to the sliding window win
@@ -126,8 +129,19 @@ class XcovEst(object):
         return self.xc*1.0/N_unbiased - self.mean**2
 
 
+    def aggvar_coeff(self, L):
+        if L>100000:
+            WARN('WARNING','L is too large for aggregated variance estimator (L=%d)' % L)
+        av_coeff = diag(ones(L))
+        for i in xrange(L):
+            av_coeff[i,:i+1]=arange(i+1,0,-1)
+        av_coeff *= 2
+        av_coeff[:,0] /=2
+        return av_coeff
+
+
     @property
-    def aggvar(self):
+    def aggvar___(self):
         """ """
         xc = self.xcov
         av = empty(self.L)
@@ -135,8 +149,21 @@ class XcovEst(object):
         for m in xrange(1,self.L):
             t = arange(1,m)
             av[m] = xc[0]/m + sum((m-t)*xc[t])*2/m**2
-        print av
         av[0] = nan 
+        return av
+
+
+    @property
+    def aggvar(self):
+        """ """
+        try:
+            av = dot(self.av_coeff,self.xcov)/arange(1,self.L+1)**2
+        except AttributeError:
+            print "generating coefficients for aggregated variance estimate..."
+            self.av_coeff = self.aggvar_coeff(self.L)
+            print 'done.'
+            av = dot(self.av_coeff,self.xcov)/arange(1,self.L+1)**2
+
         return av
 
 
