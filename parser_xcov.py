@@ -23,6 +23,8 @@ except ImportError:
 
 
 import hphelper
+from  hphelper import WARN, ERROR
+
 import hplotting
 
 
@@ -43,6 +45,9 @@ except (ImportError, ValueError) as e:
 options = hphelper.options
 DEBUG = hphelper.DEBUG
 
+if not options.DEBUG:
+    # avoid warnings whe using log10 with negative values
+    np.seterr(invalid='ignore')
 
 class XcovEst(object):
 
@@ -53,7 +58,7 @@ class XcovEst(object):
         self.probe_count = 0
         self.slot_count = 0
 
-        self.av_coeff = self.aggvar_coeff(self.L)
+        #self.av_coeff = self.aggvar_coeff(self.L)
 
 
     def append(self, x, zero_count = 0):
@@ -130,9 +135,11 @@ class XcovEst(object):
 
 
     def aggvar_coeff(self, L):
-        if L>100000:
-            WARN('WARNING','L is too large for aggregated variance estimator (L=%d)' % L)
-        av_coeff = diag(ones(L))
+        try:
+            av_coeff = diag(ones(L))
+        except MemoryError:
+            ERROR('L is too large for aggregated variance estimator (L=%d)' % L)
+            raise SystemExit(-1)
         for i in xrange(L):
             av_coeff[i,:i+1]=arange(i+1,0,-1)
         av_coeff *= 2
