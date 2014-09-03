@@ -184,3 +184,36 @@ class AggVarEst(XCovEst):
         else:
             return None        
 
+
+if __name__=='__main__':
+	import numpy as np
+	import code
+	import matplotlib.pyplot as plt
+	from numpy.random import binomial
+
+	data = np.loadtxt('ffgn_0.8.dat')
+	data = (data-mean(data))>0
+
+	L=1000
+	xc = XCovEst(L)
+	av = AggVarEst(L)
+
+	X = data[:100000]
+	for x in X:
+		xc.append(x)
+		av.append(x)
+
+	
+	plt.ion()
+	plt.loglog(arange(1,L), xc.values())	
+	plt.loglog(arange(1,L+1), av.values())
+
+	av_w = AggVarEst(L)
+	A = binomial(1,0.1,len(X))
+	for w in A*X:
+		av_w.append(w)
+
+	plt.loglog(arange(1,L+1), av_w.values())
+
+
+	code.interact(local=locals())
