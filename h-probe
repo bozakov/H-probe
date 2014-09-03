@@ -263,7 +263,6 @@ if options.dump:
     pparser['target'] = dumpwriter.dumpwriter
 elif options.aggvar:
     import parser_av
-    print 'hererer'
     pparser['target'] = parser_av.avparser
 elif options.hist:
     import parser_stats

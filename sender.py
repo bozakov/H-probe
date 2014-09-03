@@ -2,10 +2,7 @@
 # GPL2
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
-
 import array
-
-
 import dpkt
 import logging
 import socket
@@ -14,7 +11,6 @@ import sys
 import time
 
 import hphelper
-from hphelper import err, set_affinity 
 
 try:
     import dnet               # OSX: brew install libdnet --with-python
@@ -36,11 +32,9 @@ except ImportError:
     print "\tpython-numpy"
     exit(1)
 
-
-
 # pcap versions with different methods for injecting packets exist            
 if hasattr(pcap.pcap, 'inject'):
-    # debian python-pcap
+    # ubuntu (python-pcap)
     PCAP_INJECT = True
 else:
     # use pcap.sendpacket instead
@@ -54,7 +48,12 @@ except:
 
 
 options = hphelper.options
-from hphelper import DEBUG, INFO, ERROR
+from hphelper import DEBUG, INFO, ERROR, set_affinity 
+
+
+IP_HDR_LEN    = 20
+ETHER_HDR_LEN = 14
+ICMP_HDR_LEN  = 8
 
 def checksum(packet):
     """Generates a checksum of a (ICMP) packet. Based on ping.c on
@@ -146,113 +145,15 @@ def sendloop(ns, busy_loop=False):
     #s.close()                 # close socket
     DEBUG("sender runtime:\t %.8f s" % (t_total))
 
+
 ##############################################################################
 # pre-generate probes on import
 
-IP_HDR_LEN    = 20
-ETHER_HDR_LEN = 14
-ICMP_HDR_LEN  = 8
-
-
-
-
-
-
-def gen_probes_icmp():
-
-    payload = '8'*(options.plen-(ETHER_HDR_LEN+4)-IP_HDR_LEN-ICMP_HDR_LEN)
-    echo = dpkt.icmp.ICMP.Echo(seq=0, id=2692, data=payload)
-    icmp = dpkt.icmp.ICMP(type=dpkt.icmp.ICMP_ECHO, data=echo)
-
-    payload_rest = '8'*(len(payload)-4-4)
-    for i in xrange(options.pnum):
-        seq_id = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
-        j=long(slottimes[i])
-        slot_id = struct.pack('!L', (j) % 0xFFFFFFFF)         # increment 4 byte slot ID in ICMP payload
-
-        icmp.data.data = ''.join([seq_id,slot_id,payload_rest])
-        pkts[i] = str(icmp)[:PKT_ARRAY_WIDTH]                    # only store first 100 packet bytes 
-
-    print 'done!'
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, dpkt.ip.IP_PROTO_ICMP)
-        s.connect((options.IPDST, 1))
-    except Exception as e:
-        print e
-    return s
-
-
-
-    
-    
 
 def gen_probes_raw():
-        
-    try:
-        p = Ether()/IP(dst=options.IPDST, ttl=64)/ICMP(type=8, seq=0, chksum=0)/Raw('8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN))     # 8 Byte ICMP header + 20 Byte IP header
-        try:
-            # generate a packet string which we can modify efficiently
-            str_p = str(p)
-        except socket.error:
-            err("scapy needs root privileges!")
-
-        hdr = str_p[:ETHER_HDR_LEN+IP_HDR_LEN]
-        pkt = str_p[ETHER_HDR_LEN+IP_HDR_LEN:]
-        psize = options.plen + ETHER_HDR_LEN
-
-        # packet and format 
-        p = [ hdr, 
-              pkt[:2], 
-              struct.pack('<H', (0)),                           # p[2] = ICMP checksum
-              pkt[4:16], 
-              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[4] = sequence number (4 bytes)
-              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[5] = slot number (4 bytes)
-              pkt[16+4+4:]]                                     # payload
-
-        ck = checksum(''.join(p[1:])) & 0xFFFF                  # calculate initial ICMP cksum
-        p[2] = struct.pack('H', (ck))                           # update ICMP cksum
-
-
-
-        M_ = sum(struct.unpack('HHHH',''.join(p[4:6])))
-        j = 0
-        for i in xrange(options.pnum):
-            j=long(slottimes[i])
-            p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
-            p[5] = struct.pack('!L', (j) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
-            M = sum(struct.unpack('HHHH', ''.join(p[4:6])))
-            ck = ck + M_ - M
-
-            p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
-            pkts[i] = ''.join(p)[:PKT_ARRAY_WIDTH]                  # only store first 100 packet bytes 
-
-            #hexdump(pkts[i])
-            #Ether(pkts[i]).show2()
-
-            M_=M
-
-    except (MemoryError, ValueError):
-        err("Not enough memory!",2)
-    except KeyboardInterrupt:
-        print 'terminated by user.'
-    except ImportError:
-        print "!! please make sure that the following package is installed:"
-        print "\tpython-scapy"
-        raise SystemExit(1)
-
-
-    print 'done'
-    try:
-        addr = (options.eth, 0x0800)
-        s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW)  # create a raw-socket (doesn't work on OSX)
-        s.bind(addr)                                          # ether type for IP e.g. ('eth1', 0x0800)
-        s.setblocking(False)                                  # False = disable blocking
-    except socket.error:
-        err("could not create raw socket, root privileges are required!")
-    return s
-
-
-def gen_probes_raw2():
+    """ Pre-generate raw Ethernet packets and store these in the 
+    array pkts.
+    """
     from dpkt.ethernet import Ethernet
     from dpkt.ip import IP
     from dpkt.icmp import ICMP
@@ -260,14 +161,14 @@ def gen_probes_raw2():
     eth_info = dnet.intf().get_dst(options.net_info['ip_dst'])
     options.net_info['l2_src'] = eth_info['link_addr'].eth
     gw = dnet.route().get(options.net_info['ip_dst'])
-
     if gw:
         options.net_info['l2_dst'] = dnet.arp().get(gw).eth
     else:   # destination is in the same subnet
         options.net_info['l2_dst'] = dnet.arp().get(options.net_info['ip_dst']).eth
 
+
     try:
-        icmp_data = ICMP(type=8, data=ICMP.Echo(seq=0, id=0,data = '8'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN)))
+        icmp_data = ICMP(type=8, data=ICMP.Echo(seq=0, id=0,data = 'H'*(options.plen-ICMP_HDR_LEN-IP_HDR_LEN)))
         ip_data = IP(src=options.net_info['ip_src'].ip, dst=options.net_info['ip_dst'].ip, p=1, data=icmp_data)
         ip_data.len += len(ip_data.data)
 
@@ -290,8 +191,6 @@ def gen_probes_raw2():
         ck = checksum(''.join(p[1:])) & 0xFFFF                  # calculate initial ICMP cksum
         p[2] = struct.pack('H', (ck))                           # update ICMP cksum
 
-
-
         M_ = sum(struct.unpack('HHHH',''.join(p[4:6])))
         j = 0
         for i in xrange(options.pnum):
@@ -304,13 +203,10 @@ def gen_probes_raw2():
             p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
             pkts[i] = ''.join(p)[:PKT_ARRAY_WIDTH]                  # only store first 100 packet bytes 
 
-            #hexdump(pkts[i])
-            #Ether(pkts[i]).show2()
-
             M_=M
 
     except (MemoryError, ValueError):
-        err("Not enough memory!",2)
+        ERROR("Not enough memory!",2)
     except KeyboardInterrupt:
         print 'terminated by user.'
         raise SystemExit(-1)
@@ -328,12 +224,13 @@ def gen_probes_raw2():
 import code
 
 if __name__=='__main__':
+    print 'TESTING SENDER'
+
     options.pnum = 1000
     options.rate = 0.1
     options.plen = 64
     options.delta = 1e-3
-
-    options.DST = '172.23.180.111'
+    options.DST = '192.168.1.1'
 
     eth_info = dnet.intf().get_dst(dnet.addr(options.DST))
 
@@ -357,7 +254,6 @@ PKT_ARRAY_APPEND  = max((options.plen + ETHER_HDR_LEN) - PKT_ARRAY_WIDTH,0) # ne
 
 
 def sendpacket(pkt_str):
-
     # pcap versions with different methods for injecting packets exist
     if PCAP_INJECT==True:
         s.inject(pkt_str, len(pkt_str))
@@ -366,17 +262,16 @@ def sendpacket(pkt_str):
 
 
 if not options.loaddump:
-    print 'generating %i ICMP probes...' % (options.pnum), 
+    print 'pre-generating %i ICMP probes...' % (options.pnum), 
     sys.stdout.flush()
 
     # store send times as an slot index
     slottimes = np.cumsum(np.random.geometric(options.rate, size=options.pnum)).astype(int)
 
-    # pre-generate all ICMP packets in an numpy array so we do not have to
-    # waste time at runtime
+    # pre-generate all ICMP packets in an numpy array so we do not
+    # have to waste time at runtime
     pkts = np.empty(options.pnum, dtype=np.dtype((str, PKT_ARRAY_WIDTH)))
 
-    probe_socket = gen_probes_raw2()
-    #probe_socket = gen_probes_icmp()
+    probe_socket = gen_probes_raw()
     s = probe_socket
 
