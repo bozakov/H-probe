@@ -46,7 +46,8 @@ class AggVarEstimator(threading.Thread):
   
     def __init__(self, buf, M=None):
 
-        
+        threading.Thread.__init__(self)
+
         self.buf = buf
         if not M:
             #M = range(options.M[0], options.M[1], 300)
@@ -80,7 +81,8 @@ class AggVarEstimator(threading.Thread):
         # start progress bar thread 
         hphelper.bar_init(options, self.stats)
 
-        threading.Thread.__init__(self)
+        self.daemon = True
+
 
 
 
@@ -200,7 +202,7 @@ class AggVarEstimator(threading.Thread):
             self.win = np_append(self.win[1:], x)
             self.slot_count += 1
 
-            [var.step(np.mean(self.win[-m:])) for m,var in self.avars.iteritems() if not self.slot_count % m]
+            [var.append(np.mean(self.win[-m:])) for m,var in self.avars.iteritems() if not self.slot_count % m]
 
 
             
@@ -245,7 +247,6 @@ def avparser(pipe, proc_opts, ST=None):
 
     # init estimator thread
     av = AggVarEstimator(rcv_buf, ST)
-    av.daemon = True
 
     # init plotter thread
     avplotter_thread = threading.Thread(target=avplotter, args=(av,))

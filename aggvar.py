@@ -4,7 +4,7 @@ import numpy as np
 
 class VarEst(object):
     """An online variance estimator. The object is fed new samples
-    using the step() method and calulates the variance on the fly.
+    using the append() method and calulates the variance on the fly.
     """
 
     N_MIN = 25                 # minimum number of samples required to
@@ -17,8 +17,8 @@ class VarEst(object):
         self.mean = np.float(0.0)
         self.M2 = np.float(0.0)
 
-    def step(self, x):
-        """Receive a single sample and update the variance"""
+    def append(self, x):
+        """Receive a single sample and update the variance."""
         self.n += 1
         delta = x - self.mean
         self.mean += delta/self.n
@@ -56,7 +56,7 @@ class VarEst(object):
 
 class OfflineVarEst(object):
     """An offline variance estimator. The object is fed new samples
-    using the step() method and calulates the variance on the fly.
+    using the append() method and calulates the variance on the fly.
     """
     # maximum window size/number of past samples to use for calculation (in seconds)
     W_MAX=600
@@ -69,7 +69,7 @@ class OfflineVarEst(object):
         self.M = m             # aggregation level
         self.n = 0
 
-    def step(self, x):
+    def append(self, x):
         self.win = np.append(self.win[1:],x)
         self.n = min(self.n+1, len(self.win))
 
@@ -81,3 +81,5 @@ class OfflineVarEst(object):
 
     def __str__(self):
         return '%f\t%.6f\t%d\t%.6f\n' % (self.M, self.var(), self.n, np.mean(self.win[~np.isnan(self.win)]))
+
+
