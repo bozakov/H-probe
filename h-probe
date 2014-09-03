@@ -91,6 +91,8 @@ oparser.add_option("--fps", dest="fps", default=1.0, type="float",
                   help="frames per second for plotting (default: %default)")
 oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=False,
                   help="estimate aggregate variance (default)")
+oparser.add_option("--aggvar-xc", action="store_true", dest="aggvar_xc", default=False,
+                  help="estimate aggregate variance")
 oparser.add_option("--xcov", action="store_true", dest="xcov", default=False,
                   help="estimate path covariance")
 oparser.add_option("--hist", action="store_true", dest="hist", default=False,
@@ -137,15 +139,7 @@ options.CPUID = hphelper.load_process_affinities()
 hphelper.set_affinity('main')
 
     
-if options.loaddump:
-    DST='localhost'
-else:
-    try:
-        DST = args[0]
-    except IndexError:
-        ERROR('please specify a valid destination host!')
 
-options.start_time = None
 
 try:
     # save covariance data and plot to this file
@@ -155,6 +149,14 @@ except IndexError:
 
 if options.tag:
     options.tag = '_' + options.tag
+
+if options.loaddump:
+    DST='localhost'
+else:
+    try:
+        DST = args[0]
+    except IndexError:
+        ERROR('please specify a valid destination host!')
 
 options.DST = DST
 ip_addr = dnet.addr(DST, dnet.ADDR_TYPE_IP)
@@ -167,10 +169,10 @@ net_info['ip_src'] = dnet.addr(eth_info['addr'].ip)
 net_info['ip_dst'] = dnet.addr(DST, dnet.ADDR_TYPE_IP)
 
 options.net_info = net_info
+options.eth = net_info['eth']
 
 
-options.eth = eth_info['name']
-options.IPSRC = dnet.addr(eth_info['addr'].ip)
+options.start_time = None
 
 
 #################################################################################
