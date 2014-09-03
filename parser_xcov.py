@@ -47,7 +47,8 @@ DEBUG = hphelper.DEBUG
 
 if not options.DEBUG:
     # avoid warnings whe using log10 with negative values
-    np.seterr(invalid='ignore')
+    seterr(invalid='ignore')
+
 
 class XcovEst(object):
 
@@ -58,11 +59,9 @@ class XcovEst(object):
         self.probe_count = 0
         self.slot_count = 0
 
-        #self.av_coeff = self.aggvar_coeff(self.L)
-
 
     def append(self, x, zero_count = 0):
-        """ Appends the last received probe to the sliding window win
+        """Appends the last received probe to the sliding window win
             containing the last L values (lags) and adds the contents of win
             to the biased covariance vector xc.
 
@@ -89,24 +88,25 @@ class XcovEst(object):
 
 
     def test(self, data=None):
+        """Just a simple test for the autocovariance."""
         if data==None:
             data = [1,1,0,1,1,1,1,0,0,1,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,1]
 
         for x in data:
             self.append(x)
-        print self.mean
+        print self.mean, mean(data)
         print self.xcov
-        #print self
+
 
     @property
     def xc(self):
-        """ return the unscaled autocorrelation """ 
+        """Returns the unscaled autocorrelation."""
         # flip array so that lag zero is on the left hand side
         return self._xc[::-1]
 
     @property
     def mean(self):
-        """ return the mean of the observation vector """
+        """Returns the mean of the observation vector."""
         try:
             return self.probe_count*1.0/self.slot_count
         except ZeroDivisionError:
@@ -114,27 +114,48 @@ class XcovEst(object):
 
 
     def var(self, mean_w=0.0):
-            """Returns the variance of the observation process """
-            if not mean_w:
-                mean_w = self.mean
+        """Returns the variance of the observation process."""
+        if not mean_w:
+            mean_w = self.mean
 
-            # the covariance at lag 0 is the variance of the
-            # observation process
-            try:
-                return self._xc[-1]*1.0/self.slot_count - mean_w**2
-            except:
-                return nan
+        # the covariance at lag 0 is the variance of the
+        # observation process
+        try:
+            return self._xc[-1]*1.0/self.slot_count - mean_w**2
+        except:
+            return nan
 
     @property
     def xcov(self):
-        """calculates the autocovariance estimate from the sliding window sums
-        xc. Returns lags 1 to L."""
+        """Calculates the autocovariance estimate from the sliding window sums
+        xc. Returns lags 0 to L."""
         N_unbiased = self.slot_count - arange(self.L, dtype=float)
         N_unbiased[N_unbiased<1] = nan
         return self.xc*1.0/N_unbiased - self.mean**2
 
 
-    def aggvar_coeff(self, L):
+    def __repr__(self):
+        s = ', '.join(['%.6f' % i for i in self.xcov])
+        return 'covariance:\t[' + s + ']'
+
+
+    def __str__(self):
+        """Returns a string of covariance values which can be piped
+        into gnuplot."""
+        y = self.xcov[1:]
+
+        if any(y):
+            return '\n'.join([str(a) for a in y])
+        else:
+            return None
+
+class AggVarEst(XcovEst):
+
+    def __init__(self, max_lag):
+        XcovEst.__init__(self, max_lag)
+
+
+    def _aggvar_coeff(self, L):
         try:
             av_coeff = diag(ones(L))
         except MemoryError:
@@ -148,35 +169,55 @@ class XcovEst(object):
 
 
     @property
-    def aggvar___(self):
-        """ """
+    def aggvar(self):
+        """Calculate aggregated variance from autocovariance."""
+        av = empty(self.L)
+        xc = self.xcov
+
+        for m in xrange(1,self.L+1):
+            av[m-1]=dot(arange(2*m,0,-2),xc[:m])-xc[0]*m
+        return av/arange(1,self.L+1)**2        
+
+
+    @property
+    def aggvar_slow(self):
+        """Calculate aggregated variance from autocovariance. Iterative approach."""
         xc = self.xcov
         av = empty(self.L)
-
+        av[0] = nan 
         for m in xrange(1,self.L):
             t = arange(1,m)
             av[m] = xc[0]/m + sum((m-t)*xc[t])*2/m**2
-        av[0] = nan 
+
         return av
 
 
     @property
-    def aggvar(self):
-        """ """
+    def aggvar_mat(self):
+        """Calculate aggregated variance from autocovariance. Matrix approach."""
         try:
             av = dot(self.av_coeff,self.xcov)/arange(1,self.L+1)**2
         except AttributeError:
             print "generating coefficients for aggregated variance estimate..."
-            self.av_coeff = self.aggvar_coeff(self.L)
+            self.av_coeff = self._aggvar_coeff(self.L)
             print 'done.'
             av = dot(self.av_coeff,self.xcov)/arange(1,self.L+1)**2
-
         return av
+
+    def __repr__(self):
+        s = ', '.join(['%.6f' % i for i in self.aggvar])
+        return 'aggvar:\t[' + s + ']'
 
 
     def __str__(self):
-        s = '\t'.join(['%.6f' % i for i in self.xcov])
-        return s
+        """Returns a string of aggregated variance values which can be piped
+        into gnuplot."""
+        y = self.aggvar[1:]
+        if any(y):
+            return '\n'.join([str(a) for a in y])
+        else:
+            return None        
+
 
 class XcovEstimator(threading.Thread):
     """An online estimator for the covariance of a point process.
@@ -187,6 +228,8 @@ class XcovEstimator(threading.Thread):
     """
 
     def __init__(self, buf, slots):
+            threading.Thread.__init__(self)
+
             self.stats = hphelper.stats_stats()
 
             self.xc = XcovEst(options.L)
@@ -198,15 +241,11 @@ class XcovEstimator(threading.Thread):
             self.min_win_seq = 1
             self.max_win_seq = self.L
 
-            self.terminated = False
-
             self.mean_a = options.rate
             self.var_a = self.mean_a - self.mean_a**2
 
             # start progress bar thread 
             hphelper.bar_init(options, self.stats)
-
-            threading.Thread.__init__(self)
 
 
     def conf_int(self, xcov=None):
