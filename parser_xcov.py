@@ -56,20 +56,20 @@ class XcovEstimator(threading.Thread):
     at each time-step.
     """
 
-    def __init__(self, buf, slots, estimator='xcov'):
+    def __init__(self, buf, aggvar_est=False):
             threading.Thread.__init__(self)
 
             self.stats = hphelper.stats_stats()
 
-            if estimator=='xcov':
-                self.estimator = XCovEst(options.L)
-            elif estimator=='aggvar':
+            if aggvar_est==True:
                 self.estimator = AggVarEst(options.L)
+            else:
+                self.estimator = XCovEst(options.L)
 
             self.L = self.estimator.L            # max covariance lag
 
             self.buf = buf
-            self.slots = slots
+
 
             self.min_win_seq = 1
             self.max_win_seq = self.L
@@ -80,11 +80,13 @@ class XcovEstimator(threading.Thread):
             # start progress bar thread 
             hphelper.bar_init(options, self.stats)
 
+            self.daemon = True
+
 
     def conf_int(self, xcov=None):
         """Returns the 95 confidence interval level for sampled iid Gaussian process."""
         if not xcov:
-            xcov = self.estimator.xcov[1:]
+            xcov = self.estimator.values()
 
         mean_a = self.mean_a
         var_a = self.var_a
@@ -103,7 +105,7 @@ class XcovEstimator(threading.Thread):
         """Performs a linear fit on the covariance estimate.
 
         Performs a regression on the logarithm of the covariance
-        estimate returned by xc.xcov. Omits all values larger equal
+        estimate returned by estimator.values(). Omits all values larger equal
         thresh.
 
         Args: 
@@ -120,7 +122,7 @@ class XcovEstimator(threading.Thread):
             min_lag, max_lag = (1,self.L)
 
 
-        xc = self.estimator.xcov[1:]
+        xc = self.estimator.values()
         if thresh:
             xc[xc<=thresh] = nan
 
@@ -188,19 +190,6 @@ class XcovEstimator(threading.Thread):
                 # all intermediate packets were missing
                 stats.rcv_err += seq_delta
 
-            ## each dropped probe indicates a full queue append, a
-            ## 1 to the covariance vector
-            #while seq!=last_seq+1:
-            #    last_seq += 1
-            #    next_slot = slots[last_seq]
-            #    if next_slot==-1:                         # slottimes vector might be incomplete
-            #        continue
-            #    slot_delta = next_slot - last_slot
-            #    last_slot = next_slot
-            #    stats.rcv_err += 1                        # increment dropped packets counter
-            #    self.append(1, slot_delta)
-
-
             last_seq = seq
 
             slot_delta = slot - last_slot
@@ -229,7 +218,7 @@ except (NameError, AttributeError) as e:
 
 
 
-def xcparser(pipe, ns, slottimes):
+def xcparser(pipe, proc_opts):
     if not options.start_time:
         options.start_time = time.time()
   
@@ -245,8 +234,12 @@ def xcparser(pipe, ns, slottimes):
 
     rcv_buf = deque() # TODO  rcv_buf = xcfast.fixed_buf(options.pnum)
 
-    xc = XcovEstimator(rcv_buf, slottimes)
-    xc.daemon = True
+    try:
+        if proc_opts.aggvar_est==True:
+            xc = XcovEstimator(rcv_buf, aggvar_est=True)
+    except AttributeError:
+        xc = XcovEstimator(rcv_buf, aggvar_est=False)
+
     xc.name='parseloop'
 
 
@@ -255,7 +248,7 @@ def xcparser(pipe, ns, slottimes):
     xcplotter_thread.daemon = True
 
     #block until sender + receiver say they are ready
-    while not all([ns.RCV_READY,ns.SND_READY]):
+    while not all([proc_opts.RCV_READY,proc_opts.SND_READY]):
         time.sleep(0.1)
 
     DEBUG('starting parser: '+__name__)
@@ -303,7 +296,7 @@ def xcparser(pipe, ns, slottimes):
         fs = open(fname, mode='w')
         fs.write('% ' + options.IPDST + ' ' + str(options))
         
-        for j in xc.estimator.xcov[1:]:
+        for j in xc.estimator.values():
             fs.write("%e\n" % (j))
         fs.close()
     except KeyboardInterrupt:

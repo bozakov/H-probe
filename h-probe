@@ -91,7 +91,7 @@ oparser.add_option("--fps", dest="fps", default=1.0, type="float",
                   help="frames per second for plotting (default: %default)")
 oparser.add_option("--aggvar", action="store_true", dest="aggvar", default=False,
                   help="estimate aggregate variance (default)")
-oparser.add_option("--aggvar-xc", action="store_true", dest="aggvar_xc", default=False,
+oparser.add_option("--aggvarx", action="store_true", dest="aggvar_xc", default=False,
                   help="estimate aggregate variance")
 oparser.add_option("--xcov", action="store_true", dest="xcov", default=False,
                   help="estimate path covariance")
@@ -120,7 +120,7 @@ else:
 options.plot = not options.no_plot
 options.ci = False
 
-parsers = [options.aggvar, options.xcov, options.hist, options.dump]
+parsers = [options.aggvar, options.aggvar_xc, options.xcov, options.hist, options.dump]
 if sum(parsers)>1:
     ERROR('multiple parsers were specified')
 elif sum(parsers)==0:
@@ -186,12 +186,12 @@ print
 
 
 #################################################################################
-def run_processes(ns, *procs):
+def run_processes(proc_opts, *procs):
     # reset options
-    ns.FATAL_ERROR = False
-    ns.SND_READY = False
-    ns.CAP_READY = False
-    ns.RCV_READY = False
+    proc_opts.FATAL_ERROR = False
+    proc_opts.SND_READY = False
+    proc_opts.CAP_READY = False
+    proc_opts.RCV_READY = False
 
     plist = []
     for p in procs:
@@ -207,7 +207,7 @@ def run_processes(ns, *procs):
         while any([p.is_alive() for p in plist]):
             for p in plist:
                 p.join(1)
-            if ns.FATAL_ERROR: raise KeyboardInterrupt()
+            if proc_opts.FATAL_ERROR: raise KeyboardInterrupt()
 
 
     except KeyboardInterrupt:
@@ -222,21 +222,15 @@ def run_processes(ns, *procs):
 data_pipe_out, data_pipe_in = multiprocessing.Pipe(duplex=False)
 
 manager = multiprocessing.Manager()
-ns = manager.Namespace()
-ns.cnum = None
+proc_opts = manager.Namespace()
+proc_opts.FATAL_ERROR = False
+proc_opts.cnum = None
 
 psender  = {'target':None, 'args':None, 'name':'sender'}
 pcapture = {'target':None, 'args':None, 'name':'capture'}
 pparser  = {'target':None, 'args':None, 'name':'parser'}
 
 
-#TODO TEMP
-slottimes = np.zeros(options.pnum).astype(int)
-
-
-
-
-ns.FATAL_ERROR = False
 ######### setup sender process ############################################
 import sender
 
@@ -246,8 +240,7 @@ if options.loaddump:
 else:
     # generate probing packets and start sending  
     psender['target'] = sender.sendloop
-
-psender['args'] = (ns,)
+psender['args'] = (proc_opts,)
 
 ######### setup capture process ############################################
 import capture
@@ -256,8 +249,7 @@ if options.loaddump:
     pcapture['target'] = capture.dumploop   
 else:
     pcapture['target'] = capture.rcvloop
-
-pcapture['args'] = (data_pipe_in, ns)
+pcapture['args'] = (data_pipe_in, proc_opts)
 
 ######### setup parser process ##############################################
 if options.dump:
@@ -272,8 +264,11 @@ elif options.hist:
 elif options.xcov:
     import parser_xcov
     pparser['target'] = parser_xcov.xcparser
-
-pparser['args'] = (data_pipe_out, ns, slottimes)
+elif options.aggvar_xc:
+    import parser_xcov
+    pparser['target'] = parser_xcov.xcparser
+    proc_opts.aggvar_est = True    
+pparser['args'] = (data_pipe_out, proc_opts)
 
 
 
@@ -286,26 +281,26 @@ if (options.min_rtt == -1.0 and
 
     # send cnum probes to get an estimate of the mean RTT to use for
     # d_min/busy period detection
-    ns.cnum = int(min(max(options.pnum*0.01, 1000),10000))
-    ns.cnum = min(ns.cnum, options.pnum)
-    print 'calibrating using %d samples...' % (ns.cnum)
+    proc_opts.cnum = int(min(max(options.pnum*0.01, 1000),10000))
+    proc_opts.cnum = min(proc_opts.cnum, options.pnum)
+    print 'calibrating using %d samples...' % (proc_opts.cnum)
 
     import parser_stats
     pparser_temp_target = pparser['target']
     pparser['target'] = parser_stats.statsparser
     
     try:
-        run_processes(ns, psender, pcapture, pparser)
+        run_processes(proc_opts, psender, pcapture, pparser)
     except KeyboardInterrupt:
         pass
 
     # reset options
-    ns.cnum = None
+    proc_opts.cnum = None
     pparser['target'] = pparser_temp_target
 
 
 try:
-    options.min_rtt = ns.mean_rtt
+    options.min_rtt = proc_opts.mean_rtt
     DEBUG("overriding minimum RTT:\t\t%.6f s" % options.min_rtt)
 except AttributeError:
     # not calibrated
@@ -314,8 +309,8 @@ except AttributeError:
 ############################################################################################
 
 try:
-    if not ns.FATAL_ERROR:
-        run_processes(ns, psender, pcapture, pparser)
+    if not proc_opts.FATAL_ERROR:
+        run_processes(proc_opts, psender, pcapture, pparser)
 except KeyboardInterrupt:
     pass
 

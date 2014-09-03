@@ -23,6 +23,7 @@ except (ImportError, ValueError) as e:
 
 import hphelper
 import hplotting
+from aggvar import VarEst
 
 warnings.simplefilter('ignore', np.RankWarning)
 
@@ -31,50 +32,11 @@ options = hphelper.options
 DEBUG = hphelper.DEBUG
 ERROR = hphelper.err
 
-class var_est(object):
-    """An online variance estimator. The object is fed new samples
-    using it's step method and calulates the variance on the fly.
-    """
-
-    N_MIN = 25                 # minimum number of samples required to
-                               # return a variance estimate
-
-    def __init__(self,m):
-        self.M = m             # aggregation level in seconds: only used for printing
-        self.n = 0
-        self.mean = 0.0
-        self.M2 = 0.0
-
-    def step(self,x):
-        """Receive a single sample and update the variance"""
-        self.n += 1
-        delta = x - self.mean
-        self.mean += delta/self.n
-        self.M2 += delta*(x - self.mean)
-
-    def var(self):
-        """Returns the variance estimate for the current aggregation
-        level. Returns NaN if less than N_MIN samples were available for
-        calculating the variance"""
-        if self.n<self.N_MIN: return np.nan
-        return self.M2/(self.n - 1)
-    
-    def freeze(self):
-        """Reset sample counter for numeric stability"""
-        self.M2 = self.M2/self.n 
-        self.n = 1
-
-    def __str__(self):
-        return '%f\t%.6f\t%d\t%.6f\n' % (self.M, self.var(), self.n, self.mean)
-
-    def __repr__(self):
-        return 'M%d samples: %d\tvar: %.6f' % (self.M, self.n, self.var())
-
 
 
 try:
-    var_est = hpfast.var_est
-    DEBUG('using hpfast.var_est', __name__)
+    VarEst = hpfast.VarEst
+    DEBUG('using hpfast.VarEst', __name__)
 except (NameError, AttributeError) as e:
     pass
 
@@ -82,11 +44,10 @@ except (NameError, AttributeError) as e:
 
 class AggVarEstimator(threading.Thread):
   
-    def __init__(self, buf, slots, M=None):
+    def __init__(self, buf, M=None):
 
         
         self.buf = buf
-        self.slots = slots
         if not M:
             #M = range(options.M[0], options.M[1], 300)
             M = 10**np.linspace(np.log10(options.M[0]),np.log10(options.M[1]),200)
@@ -103,7 +64,7 @@ class AggVarEstimator(threading.Thread):
         # aggregate level, even when it was not specified by the user
         self.avars[1] = 0 
         for m in self.avars.iterkeys():
-            self.avars[m] = var_est(m)
+            self.avars[m] = VarEst(m)
 
 
         self.probe_count = 0
@@ -155,23 +116,6 @@ class AggVarEstimator(threading.Thread):
 
                 # all intermediate packets were missing
                 stats.rcv_err += seq_delta
-
-            ## packet was not sent correctly!
-            #if slot == -1.0:
-            #    stats.snd_err += 1
-            #    continue
-            ## each dropped probe indicates a full queue append, a
-            ## 1 to the covariance vector
-            #while seq!=last_seq+1:
-            #    last_seq += 1
-            #    next_slot = slots[last_seq]
-            #    if next_slot==-1:                         # slottimes vector might be incomplete
-            #        continue
-            #    slot_delta = next_slot - last_slot
-            #    last_slot = next_slot
-            #    stats.rcv_err += 1                        # increment dropped packets counter
-            #    self.append_fast(True, slot_delta-1)
-
 
             last_seq = seq
 
@@ -285,7 +229,7 @@ except (NameError, AttributeError) as e:
 
 
 
-def avparser(pipe, ns, ST=None):
+def avparser(pipe, proc_opts, ST=None):
     if not options.start_time:
         options.start_time = time.time()
   
@@ -308,7 +252,7 @@ def avparser(pipe, ns, ST=None):
     avplotter_thread.daemon = True
 
     #block until sender + receiver say they are ready
-    while not all([ns.RCV_READY,ns.SND_READY]):
+    while not all([proc_opts.RCV_READY,proc_opts.SND_READY]):
         time.sleep(0.1)
 
     av.stats.run_start = time.time()

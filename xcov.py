@@ -90,6 +90,11 @@ class XCovEst(object):
         return self.xc*1.0/N_unbiased - self.mean**2
 
 
+    def values(self):
+    	"""Returns the vector containing the estimated autocovariance self.xcov."""
+    	return self.xcov[1:]
+
+
     def __repr__(self):
         s = ', '.join(['%.6f' % i for i in self.xcov])
         return 'covariance:\t[' + s + ']'
@@ -122,6 +127,11 @@ class AggVarEst(XCovEst):
         av_coeff *= 2
         av_coeff[:,0] /=2
         return av_coeff
+
+
+    def values(self):
+    	"""Returns the vector containing the estimated autocovariance self.aggvar."""
+    	return self.aggvar
 
 
     @property

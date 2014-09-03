@@ -32,12 +32,12 @@ def plot_hist(rtts):
 
 
 
-def statsparser(pipe, ns, slottimes=None):
+def statsparser(pipe, proc_opts):
     hphelper.set_affinity('parser')
     DEBUG('starting parser ', __name__)
 
     #block until sender + receiver say they are ready
-    while not all([ns.RCV_READY,ns.SND_READY]):
+    while not all([proc_opts.RCV_READY,proc_opts.SND_READY]):
         time.sleep(0.1)
 
     stats = hphelper.stats_stats()
@@ -46,7 +46,7 @@ def statsparser(pipe, ns, slottimes=None):
     rtts = -1.0*ones(options.pnum)
 
     # start progress bar thread
-    hphelper.bar_init(options, stats,  ns.cnum)
+    hphelper.bar_init(options, stats,  proc_opts.cnum)
 
 
     run_start = time.time()
@@ -83,11 +83,11 @@ def statsparser(pipe, ns, slottimes=None):
     rtts = rtts[rtts!=-1]
 
     if not any(rtts):
-        ns.FATAL_ERROR = True
+        proc_opts.FATAL_ERROR = True
         ERROR("could not calculate average delay")
 
     # store mean RTT for use in other modules
-    ns.mean_rtt = mean(rtts)
+    proc_opts.mean_rtt = mean(rtts)
 
     stats.append_stats(median=('RTT median','%.6f' % median(rtts)),
                        std=('RTT std. dev.','%.6f' % std(rtts)),
