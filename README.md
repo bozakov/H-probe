@@ -10,7 +10,7 @@ H-probe is an online active probing tool for estimating traffic correlations fro
 H-probe uses sampling methodology that is described in
 "[Estimating traffic correlations from sampling and active network probing](http://ieeexplore.ieee.org/xpl/abstractReferences.jsp?tp=&arnumber=6663503)", by A. Rizk, Z. Bozakov and M. Fidler. IFIP Networking Conference 2013, pp.1,9, 22-24 May 2013
 
-"H-Probe: Estimating Traffic Correlations from Sampling and Active Network Probing" A technical report is available at [arXiv](http://arxiv.org/abs/1208.2870).
+A technical report "H-Probe: Estimating Traffic Correlations from Sampling and Active Network Probing" is available at [arXiv](http://arxiv.org/abs/1208.2870).
 
 H-Probe injects ICMP echo request probes from the sender to the target and captures the corresponding round trip times (RTT) using libpcap. Using the RTTs H-probe estimates the traffic correlations on the end-to-end path. Details of the algorithm are given the paper mentioned above.
 
