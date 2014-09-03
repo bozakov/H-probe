@@ -21,7 +21,7 @@ try:
                               # note: dnet.ip_cksum_add has a bug on OSX Mavericks
 except ImportError:
     try:
-        import dumbnet        # different name under debian systems
+        import dumbnet as dnet        # different name under debian systems
     except ImportError:
         print __name__ + ": please make sure the following packages are installed:"
         print "\tpython-dnet"
@@ -35,6 +35,16 @@ except ImportError:
     print "\tpython-pypcap"
     print "\tpython-numpy"
     exit(1)
+
+
+
+# pcap versions with different methods for injecting packets exist            
+if hasattr(pcap.pcap, 'inject'):
+    # debian python-pcap
+    PCAP_INJECT = True
+else:
+    # use pcap.sendpacket instead
+    PCAP_INJECT = False
 
 try:
   import setproctitle
@@ -344,9 +354,16 @@ if __name__=='__main__':
 PKT_ARRAY_WIDTH   = 100                  # number of packet bytes to store in pkts array
 PKT_ARRAY_APPEND  = max((options.plen + ETHER_HDR_LEN) - PKT_ARRAY_WIDTH,0) # need to append this number of bytes to the payload while sending
 
+
+
 def sendpacket(pkt_str):
-    s.sendpacket(pkt_str)
-    #s.send(pkt)
+
+    # pcap versions with different methods for injecting packets exist
+    if PCAP_INJECT==True:
+        s.inject(pkt_str, len(pkt_str))
+    elif PCAP_INJECT==False:
+        s.sendpacket(pkt_str)
+
 
 if not options.loaddump:
     print 'generating %i ICMP probes...' % (options.pnum), 

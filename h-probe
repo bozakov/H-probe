@@ -28,7 +28,7 @@ try:
                               # note: dnet.ip_cksum_add has a bug on OSX Mavericks
 except ImportError:
     try:
-        import dumbnet        # different name under debian systems
+        import dumbnet as dnet        # different name under debian systems
     except ImportError:
         print __name__ + ": please make sure the following packages are installed:"
         print "\tpython-dnet"
