@@ -86,18 +86,27 @@ class OfflineVarEst(object):
 
 class AggVarEst(dict):
     """ sample aggregation window. aggregated variance window of size M_MAX """
-    def __init__(self, M_MIN=1, M_MAX=100):
+    def __init__(self, samp_rate=1.0, M_MIN=1, M_MAX=100):
         # min/max aggregation levels in slots
     	dict.__init__(self)
 
-    	M = np.arange(M_MIN, M_MAX+1) # TODO linspace
-    	for m in M:
-            self[m] = VarEst(m)
+        M = 10**np.linspace(np.log10(M_MIN),np.log10(M_MAX),250) # 250 points
+        self.M = np.unique(np.append(1, M).astype(int)) # always evaluate interval M=1
+
+    	for m in self.M:
+    		self[m] = VarEst(m)
+
+
         self.probe_count = 0
         self.slot_count = 0
 
+        # we use geometric sampling
+        self.samp_rate = samp_rate
+        self.samp_var = samp_rate*(1-samp_rate)
+
         # sliding window to store arriving values
-        self.win = np.zeros(np.max(M)).astype(bool)
+        self.win = np.zeros(np.max(self.M)).astype(bool)
+        print len(self.win)
 
 
     def append_fast(self, probe, zero_count=0):
@@ -113,12 +122,12 @@ class AggVarEst(dict):
             # speed: np.r_ < np.roll < np.concatenate < np.append 
             self.win = np.append(self.win[1:], x) # append to the right hand side
             self.slot_count += 1
-
-            [self[m].append(np.mean(self.win[-m:])) for m in self.iterkeys() if self.slot_count%m==0]
+            #[self[m].append(np.mean(self.win[-m:])) for m in self.iterkeys() if self.slot_count%m==0]
+            [self[m].append(np.mean(self.win[-m:])) for m in self.iterkeys() if not self.slot_count%m ]            
 
 
     def __repr__(self):
-        return 'AggVarEst object <%s>' % str([av.sigma for m,av in self.iteritems()])
+        return 'AggVarEst object <%s>' % str(self.vars())
 
     def __str__(self):
         s = ''
@@ -128,33 +137,28 @@ class AggVarEst(dict):
             s += str(self[m])
         return s
 
-    def vars(self):
-        return [av.sigma for av in self.itervalues()]
-
-    def mean(self):
-    	print 'TODO'
-        #return self[self.keys()[0]].mean
-
-    def _fit(self):
-        """Performs a linear fit on the aggregated variance estimates"""
-        M = self.keys()
-        logy = np.log10([self[m].sigma for m in M])
-        logx = np.log10(M)
-
-        try:
-            (d,y0) = np.polyfit(logx[~np.isnan(logy)], logy[~np.isnan(logy)],1)
-            return (d,10**y0)
-        except Exception as e:
-            return (-1, -1)
-
     @property
-    def H(self):
-        return (self._fit()[0]+2)/2
+    def avars(self):
+        return np.array([av.sigma for av in self.itervalues()]) # observed aggregated variance
 
-    def hurst(self):
-        return self.H
 
-    def save(self, fname):
+    def vars(self):
+        """Returns the variances for all aggregation levels."""
+
+    	if self.samp_rate==1.0:
+    		return self.avars
+    	else:
+    		# correction to account for the geometric sampling process
+    		w_var = self[1].sigma  # variance of the observed sampled process
+    		w_mean = self[1].mean  # mean of the observed sampled process
+
+    		y_mean = w_mean/self.samp_rate 
+    		y_var = (w_var - self.samp_var*y_mean**2)/(self.samp_var + self.samp_rate**2);
+
+    		return (self.avars - self.samp_var/self.M*y_mean**2 - self.samp_var/self.M*y_var)/self.samp_rate**2;
+
+
+    def dump(self, fname):
         s = str(self)
 
         try:
@@ -166,10 +170,37 @@ class AggVarEst(dict):
         f.close()
 
 
-def test():
-#from aggvar import AggVarEst
-	av = AggVarEst()
-	data = [1,1,0,1,1,1,1,0,0,1,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,1]
 
-	for x in data+data+data:
+def test(data=None, p=1.0):
+	"""Just a simple test for the autocovariance."""
+	if data==None:
+		data = [1,1,0,1,1,1,1,0,0,1,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,1]
+
+	X = data
+	A = np.random.binomial(1,p,len(X))
+	W=A*X
+	#from aggvar import AggVarEst
+	av = AggVarEst(samp_rate=p, M_MIN=10, M_MAX=1000)
+	
+	for x in W:
 		av.append_fast(x)
+	return av
+
+if __name__ == '__main__':
+	import code
+	import numpy as np
+	print 'loading data...'
+	data = np.loadtxt('ffgn_0.8.dat')
+	data = (data-np.mean(data))>0
+
+	import matplotlib.pyplot as plt
+	plt.ion()
+	av=test(data,1.0)
+	plt.loglog(av.M,av.vars())
+	av=test(data,.1)
+	plt.loglog(av.M,av.vars())
+	code.interact(local=locals())
+
+
+
+

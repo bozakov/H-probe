@@ -148,7 +148,7 @@ def bar(options, stats, max_seq=None):
 
         try:
             import progressbar
-            pbar = progressbar.ProgressBar(term_width=term_columns).start()
+            pbar = progressbar.ProgressBar(term_width=term_columns, widgets=[progressbar.Percentage(), progressbar.Bar(marker=unichr(0x2588))]).start()
         except ImportError:
             return 
 

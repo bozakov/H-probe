@@ -21,6 +21,7 @@ try:
 except (ImportError, ValueError) as e:
     pass
 
+from aggvar import AggVarEst
 import hphelper
 import hplotting
 from aggvar import VarEst
@@ -49,40 +50,19 @@ class AggVarEstimator(threading.Thread):
         threading.Thread.__init__(self)
 
         self.buf = buf
-        if not M:
-            #M = range(options.M[0], options.M[1], 300)
-            M = 10**np.linspace(np.log10(options.M[0]),np.log10(options.M[1]),200)
-            M = np.unique(np.floor(M)).astype(int)
-
-        self.M = M            
-
-        # sliding window to store arriving values
-        self.win = np.zeros(np.max(M)).astype(bool)
-
-        # avars stores an estimator for each aggregation level in M
-        self.avars = dict.fromkeys(M,0)
-        # ensure that we calculate the variance at the smallest
-        # aggregate level, even when it was not specified by the user
-        self.avars[1] = 0 
-        for m in self.avars.iterkeys():
-            self.avars[m] = VarEst(m)
-
-
-        self.probe_count = 0
-        self.slot_count = 0
-
 
         self.stats = hphelper.stats_stats()
-        self.mean_a = options.rate
-        self.var_a = self.mean_a - self.mean_a**2
-        self.va = self.var_a*np.ones(len(self.M))/self.M
+
+
+
+        self.estimator = AggVarEst(samp_rate=options.rate, M_MIN=options.M[0], M_MAX=options.M[1])
+        self.M = self.estimator.M           
 
 
         # start progress bar thread 
         hphelper.bar_init(options, self.stats)
 
         self.daemon = True
-
 
 
 
@@ -121,7 +101,6 @@ class AggVarEstimator(threading.Thread):
 
             last_seq = seq
 
-
             slot_delta = slot - last_slot
             last_slot = slot
 
@@ -133,33 +112,18 @@ class AggVarEstimator(threading.Thread):
             # check if probe saw a busy period (True/False) 
             probe = rtt > min_rtt
 
-            self.append_fast(probe, slot_delta-1)
-
+            self.estimator.append_fast(probe, slot_delta-1)
 
 
     def get_avars(self):
         """Returns the variances estimated so far for all aggregation
         levels stored in M"""
-        return [self.avars[m].var() for m in self.M]
+        return self.estimator.vars()
 
-
-
-    def get_avars_corrected(self):
-        """Returns the variances for all aggregation levels, corrected
-        to account for the geometric sampling process"""
-        var_w = self.avars[1].var()
-        vw = self.get_avars()
-
-        mean_y_hat = self.mean()/self.mean_a
-        var_y_hat = (var_w - mean_y_hat**2*self.var_a)/(self.var_a + self.mean_a**2);
-
-        return (vw - mean_y_hat**2*self.va - self.var_a*var_y_hat/self.M)/self.mean_a**2;
-
-        
 
     def fit(self):
         """Performs a linear fit on the aggregated variance estimates"""
-        logy = np.log10(self.get_avars_corrected())
+        logy = np.log10(self.get_avars())
         logx = np.log10(self.M)
 
         try:
@@ -179,39 +143,11 @@ class AggVarEstimator(threading.Thread):
 
 
     def getdata_str(self):
-        variances = self.get_avars_corrected()
+        mv = zip(self.estimator.M, self.estimator.vars())
+        s = '\n'.join(['%.3f %f' % (m*options.delta,v) for m,v in mv])
 
-        if any(variances):
-            return '\n'.join([' '.join([str(m*options.delta),str(v)]) for m,v in zip(self.M, variances)])
-        else:
-            return ''
+        return s
 
-
-
-    def append_fast(self, probe, zcount=0):
-        ''' Append the latest received probe to a sliding
-        window. Update the aggregate variances for each variance
-        block '''
-        self.probe_count += probe
-
-        z=[False]*zcount
-        z.append(bool(probe))
-
-        for x in z:
-            # speed: np.r_ < np.roll < np.concatenate < np.append 
-            self.win = np_append(self.win[1:], x)
-            self.slot_count += 1
-
-            [var.append(np.mean(self.win[-m:])) for m,var in self.avars.iteritems() if not self.slot_count % m]
-
-
-            
-    def mean(self):
-        ''' return the mean of the observation vector mu_w '''
-        try:
-            return self.probe_count*1.0/self.slot_count
-        except:
-            return np.nan
 
 
         
@@ -273,6 +209,7 @@ def avparser(pipe, proc_opts, ST=None):
         rcv_buf.append((-2,-2,-2))
         print '\n\nparse loop interrupted...'
     except (ValueError) as e:
+        if options.DEBUG: print e
         rcv_buf.append((-2,-2,-2))
         print '\a', # received all packets
 
@@ -300,7 +237,7 @@ def avparser(pipe, proc_opts, ST=None):
             fs = open(fname, mode='w')
             fs.write('% ' + options.IPDST + ' ' + str(options))
 
-            for m,v in zip(av.get_avars_corrected(), av.M):
+            for m,v in zip(av.get_avars(), av.M):
                 fs.write("%e\t%d\n" % (m,v))
             fs.close()
     except IOError:

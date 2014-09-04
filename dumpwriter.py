@@ -35,6 +35,8 @@ def dumpwriter(pipe, ns, ST=None):
 
     print "saving RTTs to " + options.savefile + " ..."
 
+    
+    
     try:
             fs = open(options.savefile, mode='w')
             fs.write('% ' + 'options:' + ' ' + str(options) + '\n')    # save options

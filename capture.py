@@ -1,6 +1,7 @@
 import os
 import struct
 import time
+import code
 
 try:
     import pcap               # python-pypcap
@@ -139,8 +140,7 @@ class dumpdata(object):
 
 
 def dump_loader():
-    print "loading %d RTTs from " %(options.pnum) + options.loaddump 
-    dump = dumpdata(options)
+    print "loading RTTs from " + options.loaddump 
 
     try:
         if options.loaddump[-2:].lower()=='gz':
@@ -149,7 +149,7 @@ def dump_loader():
             fs = open(options.loaddump, mode='r')
         # first line should be a comment containing options
         l = fs.readline() 
-        (c, STR, opt) = str.split(l,' ',2)
+        (c, opt_key, opt_str) = str.split(l,' ',2)
     except IOError as e:
         print 'error reading dump file'
         print e
@@ -158,11 +158,16 @@ def dump_loader():
         print 'error parsing dump file'
         raise SystemExit(1)
 
+    dump = dumpdata(options)
+    #o=options
+    #code.interact(local=locals())
+
     try:
-        dump.dump_options = eval(opt)
+        dump.dump_options = eval(opt_str) # TODO replace with json
         # set some options loaded from the dump file
         options.IPDST = dump.dump_options['IPDST']
         options.DST = dump.dump_options['DST']
+        options.pnum = min(dump.dump_options['pnum'],options.pnum)
         options.plen = dump.dump_options['plen']
         options.delta = dump.dump_options['delta']
         options.tag = dump.dump_options['tag'] + options.tag
@@ -171,6 +176,7 @@ def dump_loader():
         pass
     except SyntaxError as se:
         print 'could not parse options'
+        print se
 
 
     line_count = 0
@@ -183,7 +189,8 @@ def dump_loader():
                 dump.slottimes[seq] = int(snd_slot)
                 dump.rtts[seq] = float(rtt)
                 dump.rcv_order[line_count] = seq
-            except ValueError:
+            except ValueError as e:
+                print e
                 break
             except IndexError:
                 # specified options.pnum is too small 
