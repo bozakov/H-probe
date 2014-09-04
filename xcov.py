@@ -14,8 +14,10 @@ class XCovEst(object):
         self.win = zeros(self.L, dtype=bool)
         self.probe_count = 0
         self.slot_count = 0
-        self.samp_rate = samp_rate
 
+        # we use geometric sampling
+        self.samp_rate = samp_rate
+        self.samp_var = samp_rate*(1-samp_rate)
 
     def append(self, x, zero_count = 0):
         """Appends the last received probe to the sliding window win
@@ -88,8 +90,15 @@ class XCovEst(object):
         xc. Returns lags 0 to L."""
         N_unbiased = self.slot_count - arange(self.L, dtype=float)
         N_unbiased[N_unbiased<1] = nan
-        return self.xc*1.0/N_unbiased - self.mean**2
+        xcov = self.xc*1.0/N_unbiased - self.mean**2
 
+        if self.samp_rate==1.0:
+        	return xcov
+        else:
+        	# apply correction to account for geometric sampling process 
+        	xcov[0] = (xcov[0] - self.samp_var*(self.mean/self.samp_rate)**2)/(self.samp_var + self.samp_rate**2)
+        	xcov[1:] /= self.samp_rate**2
+        	return xcov
 
     def values(self):
     	"""Returns the vector containing the estimated autocovariance self.xcov."""
@@ -105,16 +114,15 @@ class XCovEst(object):
         """Returns a string of covariance values which can be piped
         into gnuplot."""
         y = self.xcov[1:]
-
         if any(y):
             return '\n'.join([str(a) for a in y])
         else:
-            return None
+            return ''
 
 class AggVarEst(XCovEst):
 
     def __init__(self, max_lag, samp_rate=1.0):
-        XCovEst.__init__(self, max_lag, samp_rate=1.0)
+        XCovEst.__init__(self, max_lag, samp_rate)
 
 
     def values(self):
@@ -154,11 +162,11 @@ class AggVarEst(XCovEst):
     def __str__(self):
         """Returns a string of aggregated variance values which can be piped
         into gnuplot."""
-        y = self.aggvar[1:]
+        y = self.aggvar[1:] #FIXME
         if any(y):
             return '\n'.join([str(a) for a in y])
         else:
-            return None        
+            return ''
 
 
 if __name__=='__main__':
@@ -167,6 +175,7 @@ if __name__=='__main__':
 	import matplotlib.pyplot as plt
 	from numpy.random import binomial
 
+	print 'loading data...'
 	data = np.loadtxt('ffgn_0.8.dat')
 	data = (data-mean(data))>0
 
@@ -181,15 +190,15 @@ if __name__=='__main__':
 
 	
 	plt.ion()
-	plt.loglog(arange(1,L), xc.values())	
-	plt.loglog(arange(1,L+1), av.values())
+	plt.loglog(arange(1,L), xc.values(), label='xcov')	
+	plt.loglog(arange(1,L+1), av.values(), label='aggvar')
 
-	av_w = AggVarEst(L)
+	av_w = AggVarEst(L, 0.1)
 	A = binomial(1,0.1,len(X))
 	for w in A*X:
 		av_w.append(w)
 
-	plt.loglog(arange(1,L+1), av_w.values())
+	plt.loglog(arange(1,L+1), av_w.values(), label='aggvar with sampling')
 
 
 	code.interact(local=locals())

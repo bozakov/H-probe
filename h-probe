@@ -210,7 +210,7 @@ def run_processes(proc_opts, *procs):
             if proc_opts.FATAL_ERROR: raise KeyboardInterrupt()
 
 
-    except KeyboardInterrupt:
+    except KeyboardInterrupt, IOError:
         print 'main process interrupted'
         for p in plist:
             p.terminate()
@@ -313,6 +313,7 @@ try:
         run_processes(proc_opts, psender, pcapture, pparser)
 except KeyboardInterrupt:
     pass
+
 
 
 

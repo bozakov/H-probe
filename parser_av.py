@@ -184,7 +184,7 @@ class AggVarEstimator(threading.Thread):
         if any(variances):
             return '\n'.join([' '.join([str(m*options.delta),str(v)]) for m,v in zip(self.M, variances)])
         else:
-            return None
+            return ''
 
 
 

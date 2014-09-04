@@ -62,9 +62,9 @@ class XcovEstimator(threading.Thread):
             self.stats = hphelper.stats_stats()
 
             if aggvar_est==True:
-                self.estimator = AggVarEst(options.L)
+                self.estimator = AggVarEst(options.L, options.rate)
             else:
-                self.estimator = XCovEst(options.L)
+                self.estimator = XCovEst(options.L, options.rate)
 
             self.L = self.estimator.L            # max covariance lag
 
