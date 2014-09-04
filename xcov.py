@@ -8,12 +8,13 @@ except ImportError:
 
 class XCovEst(object):
 
-    def __init__(self, max_lag):
+    def __init__(self, max_lag, samp_rate=1.0):
         self.L = max_lag    # max covariance lag
         self._xc = zeros(self.L, dtype=int)
         self.win = zeros(self.L, dtype=bool)
         self.probe_count = 0
         self.slot_count = 0
+        self.samp_rate = samp_rate
 
 
     def append(self, x, zero_count = 0):
@@ -112,21 +113,8 @@ class XCovEst(object):
 
 class AggVarEst(XCovEst):
 
-    def __init__(self, max_lag):
-        XCovEst.__init__(self, max_lag)
-
-
-    def _aggvar_coeff(self, L):
-        try:
-            av_coeff = diag(ones(L))
-        except MemoryError:
-            ERROR('L is too large for aggregated variance estimator (L=%d)' % L)
-            raise SystemExit(-1)
-        for i in xrange(L):
-            av_coeff[i,:i+1]=arange(i+1,0,-1)
-        av_coeff *= 2
-        av_coeff[:,0] /=2
-        return av_coeff
+    def __init__(self, max_lag, samp_rate=1.0):
+        XCovEst.__init__(self, max_lag, samp_rate=1.0)
 
 
     def values(self):
@@ -140,7 +128,9 @@ class AggVarEst(XCovEst):
         av = empty(self.L)
         xc = self.xcov
 
+        # m is the aggregation interval
         for m in xrange(1,self.L+1):
+        	# e.g. m=4 -> av_4 = [8/2 6 4 2]*[xc_0 xc_1 xc_2 xc_3]'/4^2
             av[m-1]=dot(arange(2*m,0,-2),xc[:m])-xc[0]*m
         return av/arange(1,self.L+1)**2        
 
@@ -154,20 +144,6 @@ class AggVarEst(XCovEst):
         for m in xrange(1,self.L):
             t = arange(1,m)
             av[m] = xc[0]/m + sum((m-t)*xc[t])*2/m**2
-
-        return av
-
-
-    @property
-    def aggvar_mat(self):
-        """Calculate aggregated variance from autocovariance. Matrix approach."""
-        try:
-            av = dot(self.av_coeff,self.xcov)/arange(1,self.L+1)**2
-        except AttributeError:
-            print "generating coefficients for aggregated variance estimate..."
-            self.av_coeff = self._aggvar_coeff(self.L)
-            print 'done.'
-            av = dot(self.av_coeff,self.xcov)/arange(1,self.L+1)**2
         return av
 
     def __repr__(self):
