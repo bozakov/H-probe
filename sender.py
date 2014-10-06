@@ -3,9 +3,6 @@
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
 import array
-import dpkt
-import logging
-import socket
 import struct
 import sys
 import time
@@ -23,7 +20,6 @@ except ImportError:
         print "\tpython-dnet"
 
 try:
-    from numpy import random as prnd
     import numpy as np
     import pcap               # python-pypcap
 except ImportError:
@@ -41,14 +37,14 @@ else:
     PCAP_INJECT = False
 
 try:
-  import setproctitle
-  setproctitle.setproctitle('h-probe')
+    import setproctitle
+    setproctitle.setproctitle('h-probe')
 except:
-  pass # Ignore errors, since this is only cosmetic
+    pass       # Ignore errors, since this is only cosmetic
 
 
 options = hphelper.options
-from hphelper import DEBUG, INFO, ERROR, set_affinity 
+from hphelper import DEBUG, INFO, ERROR, WARN, set_affinity 
 
 
 IP_HDR_LEN    = 20
@@ -59,7 +55,7 @@ def checksum(packet):
     """Generates a checksum of a (ICMP) packet. Based on ping.c on
     FreeBSD"""
 
-    #from https://subversion.grenouille.com/svn/pygrenouille/developers/tictactoc/trunk/libs/ping.py
+    # from https://subversion.grenouille.com/svn/pygrenouille/developers/tictactoc/trunk/libs/ping.py
 
     if len(packet) & 1:                 # any data?
         packet = packet + '\0'          # make null
@@ -79,7 +75,7 @@ def checksum(packet):
 
 def dummyloop(ns):
     # notify receiver that we are ready to send
-    ns.SND_READY=True
+    ns.SND_READY = True
     # block until receiver says it is ready
     while not ns.RCV_READY:
         time.sleep(0.1)
@@ -103,14 +99,12 @@ def sendloop(ns, busy_loop=False):
     else:
         pnum = options.pnum
         INFO('expected run time', '~%.2f s (mean inter-probe time %.2e s)' % (geotimes[-1], options.delta/options.rate))
-        if geotimes[-1]/60/60>4:
+        if geotimes[-1]/60/60 > 4:
             WARN('WARNING', 'stationarity may not hold!')
-
-
 
     # notify receiver that we are ready to send and block until
     # receiver process says it is ready
-    ns.SND_READY=True
+    ns.SND_READY = True
     while not ns.RCV_READY:
         time.sleep(0.1)
 
@@ -182,31 +176,31 @@ def gen_probes_raw():
         # packet and format 
         p = [ hdr, 
               pkt[:2], 
-              struct.pack('<H', (0)),                           # p[2] = ICMP checksum
+              struct.pack('<H', (0)),                     # p[2] = ICMP checksum
               pkt[4:16], 
-              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[4] = sequence number (4 bytes)
-              struct.pack('!L', (0) % 0xFFFFFFFF),              # p[5] = slot number (4 bytes)
-              pkt[16+4+4:]]                                     # payload
+              struct.pack('!L', (0) % 0xFFFFFFFF),        # p[4] = sequence number (4 byte)
+              struct.pack('!L', (0) % 0xFFFFFFFF),        # p[5] = slot number (4 byte)
+              pkt[16+4+4:]]                               # payload
 
-        ck = checksum(''.join(p[1:])) & 0xFFFF                  # calculate initial ICMP cksum
-        p[2] = struct.pack('H', (ck))                           # update ICMP cksum
+        ck = checksum(''.join(p[1:])) & 0xFFFF            # calculate initial ICMP cksum
+        p[2] = struct.pack('H', (ck))                     # update ICMP cksum
 
-        M_ = sum(struct.unpack('HHHH',''.join(p[4:6])))
+        M_ = sum(struct.unpack('HHHH', ''.join(p[4:6])))
         j = 0
         for i in xrange(options.pnum):
             j=long(slottimes[i])
-            p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)          # increment 4 byte seq ID in ICMP payload
-            p[5] = struct.pack('!L', (j) % 0xFFFFFFFF)          # increment 4 byte slot ID in ICMP payload
+            p[4] = struct.pack('!L', (i) % 0xFFFFFFFF)    # increment 4 byte seq ID in ICMP payload
+            p[5] = struct.pack('!L', (j) % 0xFFFFFFFF)    # increment 4 byte slot ID in ICMP payload
             M = sum(struct.unpack('HHHH', ''.join(p[4:6])))
             ck = ck + M_ - M
 
-            p[2] = struct.pack('H', (ck) % 0xFFFF)               # update ICMP cksum
-            pkts[i] = ''.join(p)[:PKT_ARRAY_WIDTH]                  # only store first 100 packet bytes 
+            p[2] = struct.pack('H', (ck) % 0xFFFF)        # update ICMP cksum
+            pkts[i] = ''.join(p)[:PKT_ARRAY_WIDTH]        # only store first 100 packet bytes 
 
             M_=M
 
     except (MemoryError, ValueError):
-        ERROR("Not enough memory!",2)
+        ERROR("Not enough memory!", 2)
     except KeyboardInterrupt:
         print 'terminated by user.'
         raise SystemExit(-1)
@@ -223,7 +217,7 @@ def gen_probes_raw():
 
 import code
 
-if __name__=='__main__':
+if __name__ == '__main__':
     print 'TESTING SENDER'
 
     options.pnum = 1000

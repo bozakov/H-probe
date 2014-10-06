@@ -86,6 +86,10 @@ The command line options are given below
       --verbose             print additional info
 
 
+In order to ensure accurate timestamping and send times, H-probe launches multiple python processes which run on separate CPUs/cores (the modules are main, rcvloop, sendloop and the parser). The CPU affinity of each process may be manually specified in the special file affinity.map in the h-probe directory.
+
+
+
 Output
 ------
 
