@@ -39,7 +39,7 @@ class gp_plotter(object):
         self.PLOT_LOG = loglog
         try:
             gnuplot_cmd = 'gnuplot -persist'  #GNUTERM=x11
-            x11_opts = '-noraise -persist -backcground white'
+            x11_opts = '-noraise -persist -background white'
             self.gp = subprocess.Popen(gnuplot_cmd.split() + x11_opts.split(),
                                        stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE,
