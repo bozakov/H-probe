@@ -12,9 +12,10 @@ import subprocess
 from collections import deque
 
 
+
 try:
     from numpy import *
-#    import numpy as np
+    #import numpy as np
     import types                          # for cython binding
 except ImportError:
     print __name__ + ": please make sure the following packages are installed:"
@@ -23,7 +24,7 @@ except ImportError:
 
 
 import hphelper
-from  hphelper import WARN, ERROR
+from hphelper import WARN, ERROR
 
 import hplotting
 
@@ -47,7 +48,7 @@ DEBUG = hphelper.DEBUG
 
 if not options.DEBUG:
     # avoid warnings whe using log10 with negative values
-    np.seterr(invalid='ignore')
+    seterr(invalid='ignore')
 
 class XcovEst(object):
 
