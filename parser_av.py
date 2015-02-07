@@ -347,8 +347,6 @@ def avparser(pipe, ns, ST=None):
     print 
 
 
-    
-    
     fname = options.savefile + '.dat'
     print "saving variances to " + fname + " ..."
     try:
@@ -364,7 +362,7 @@ def avparser(pipe, ns, ST=None):
     except KeyboardInterrupt:
             print 'canceled saving.'
 
-    DEBUG('done', __name__ )
+    DEBUG('done', __name__)
 
 
 
@@ -401,7 +399,9 @@ def avplotter(av):
 
 
         i = 0
-        while av.is_alive():
+        try:
+          while av.is_alive():
+            #if not gp.gp: break
             i += 1
             if i%10==0:                              # calculate and plot hurst fit every 10 frames
                 (d,y0) = av.fit()
@@ -415,7 +415,9 @@ def avplotter(av):
             data = getdata_str()
             if data:
                 gp_cmd("plot '-' with points ls 4\n %s\n e\n"  % (data), flush=True)
-
+        except ValueError as e:
+            print e # gnuplot error
+            return
 
         # replot with label
         (d,y0) = av.fit()
@@ -441,4 +443,3 @@ def avplotter(av):
         data = getdata_str()
         gp_cmd("plot '-' with points ls 4\n %s\n e\n"  % (data), flush=True)
         gp.quit()
-

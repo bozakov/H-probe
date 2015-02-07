@@ -2,6 +2,7 @@
 # GPL2
 # Zdravko Bozakov (zb@ikt.uni-hannover.de)
 
+import code 
 import os
 import subprocess
 import time
@@ -16,16 +17,15 @@ except ImportError:
 import hphelper
 
 try:
-  import setproctitle
-  setproctitle.setproctitle('h-probe')
+    import setproctitle
+    setproctitle.setproctitle('h-probe')
 except:
-  pass # Ignore errors, since this is only cosmetic
+    pass  # Ignore errors, since this is only cosmetic
 
 
 options = hphelper.options
 
 
-    
 class gp_plotter(object):
     def __init__(self, loglog=True, ascii=False):
 
@@ -38,11 +38,15 @@ class gp_plotter(object):
 
         self.PLOT_LOG = loglog
         try:
-            self.gp = subprocess.Popen(['gnuplot', '-noraise', '-persist', '-background', 'white'], 
-                                       stdin=subprocess.PIPE, 
-                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,  # disable output
+            gnuplot_cmd = 'gnuplot -persist'  #GNUTERM=x11
+            x11_opts = '-noraise -persist -backcground white'
+            self.gp = subprocess.Popen(gnuplot_cmd.split() + x11_opts.split(),
+                                       stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT,  # disable
                                        bufsize=-1)
-        except Exception as e:
+        except OSError as e:
+            print 'could not run gnuplot!'
             print e
             return self.gp
 
@@ -114,10 +118,20 @@ class gp_plotter(object):
         self.cmd('set label '+ str(tag) +' "%s" at %e,%e\n' % (text, x,y))
         self.cmd('show label ' + str(tag))
 
-
     def cmd(self, gp_command, flush=False):
+        if self.gp is None:
+            return
+
+        if not self.gp.poll() is None:  # None if process is still alive
+            raise ValueError('gnuplot error')
+            return
+
         self.gp.stdin.write(gp_command + '\n')
-        if flush: self.gp.stdin.flush()
+        if flush:
+            try:
+                self.gp.stdin.flush()
+            except IOError:
+                raise ValueError('gnuplot error')
 
     def flush(self):
         self.gp.stdin.flush()
@@ -125,15 +139,10 @@ class gp_plotter(object):
     def quit(self):
         self.cmd('quit\n')
 
-
     def set_term_eps(self, fnamebase):
         # save current plot as EPS file
-        
+
         print "\nsaving plot to " + fnamebase + ".eps ..."
         self.cmd('set terminal postscript eps enhanced')
         self.cmd('set ylabel offset character 0, 0')
         self.cmd('set output "%s.eps"' % fnamebase)
-
-
-
-
