@@ -14,8 +14,8 @@ from collections import deque
 
 
 try:
+    # import numpy as np #FIXME
     from numpy import *
-    #import numpy as np
     import types                          # for cython binding
 except ImportError:
     print __name__ + ": please make sure the following packages are installed:"
@@ -48,7 +48,9 @@ DEBUG = hphelper.DEBUG
 
 if not options.DEBUG:
     # avoid warnings whe using log10 with negative values
-    seterr(invalid='ignore')
+    #np.seterr(invalid='ignore')
+    pass
+
 
 class XcovEst(object):
 
@@ -60,7 +62,6 @@ class XcovEst(object):
         self.slot_count = 0
 
         #self.av_coeff = self.aggvar_coeff(self.L)
-
 
     def append(self, x, zero_count = 0):
         """ Appends the last received probe to the sliding window win
@@ -85,12 +86,11 @@ class XcovEst(object):
         self.win = concatenate( (self.win[zero_count+1:], zeros(zero_count, dtype=bool), [bool(x)]) )           
 
         # increment autocovariance (just for non-zero values of win and only if x=1)
-        if x==1:
+        if x == 1:
             self._xc[nonzero(self.win)] += x
 
-
     def test(self, data=None):
-        if data==None:
+        if data == None:
             data = [1,1,0,1,1,1,1,0,0,1,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,1]
 
         for x in data:
@@ -131,7 +131,7 @@ class XcovEst(object):
         """calculates the autocovariance estimate from the sliding window sums
         xc. Returns lags 1 to L."""
         N_unbiased = self.slot_count - arange(self.L, dtype=float)
-        N_unbiased[N_unbiased<1] = nan
+        N_unbiased[N_unbiased < 1] = nan
         return self.xc*1.0/N_unbiased - self.mean**2
 
 
@@ -142,7 +142,7 @@ class XcovEst(object):
             ERROR('L is too large for aggregated variance estimator (L=%d)' % L)
             raise SystemExit(-1)
         for i in xrange(L):
-            av_coeff[i,:i+1]=arange(i+1,0,-1)
+            av_coeff[i, :i+1] = arange(i+1, 0, -1)
         av_coeff *= 2
         av_coeff[:,0] /=2
         return av_coeff
@@ -248,15 +248,14 @@ class XcovEstimator(threading.Thread):
         if all(lag_range):
             min_lag, max_lag = lag_range
         else:
-            min_lag, max_lag = (1,self.L)
-
+            min_lag, max_lag = (1, self.L)
 
         xc = self.xc.xcov[1:]
         if thresh:
-            xc[xc<=thresh] = nan
+            xc[xc <= thresh] = nan
 
         logy = log10(xc[min_lag-1:max_lag-1])
-        logx = log10(arange(min_lag,max_lag))
+        logx = log10(arange(min_lag, max_lag))
 
         try:
             (d,y0) = polyfit(logx[~isnan(logy)], logy[~isnan(logy)],1)   
@@ -264,18 +263,16 @@ class XcovEstimator(threading.Thread):
         except Exception as e:
             return (-1, -1)
 
-
     def getdata_str(self):
         """Returns a string of covariance values which can be piped
         into gnuplot."""
         y = self.xc.xcov[1:]
-        #y = self.xc.aggvar
+        # y = self.xc.aggvar
 
         if any(y):
             return '\n'.join([str(a) for a in y])
         else:
             return None
-
 
     def hurst(self, d=None, thresh=0):
         """Returns the Hurst parameter estimate."""
@@ -283,14 +280,12 @@ class XcovEstimator(threading.Thread):
             (d,y0) = self.fit(thresh=thresh)
         return (d+2)/2
 
-
     def pprint(self):
         """print out the biased covariance"""
         print 'xc=[',
         for i in reversed(self.xc):
             print '%.8f' % (i),
         print '];'
-
 
     def run(self):
         stats = self.stats
